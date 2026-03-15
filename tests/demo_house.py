@@ -35,3 +35,18 @@ Smart_Plug = device ("1a66c3d6-22b2-446e-bf5c-eb5b9d1a8c79", "MysticEnergy Innov
 Dehumidifier = device ("9e5b8274-4e77-4e4e-80d2-b40d648ea02a", "ArcaneTech Solutions", "Hydra Dry 8000")
 Light_Bulp = device ("6b1c5f6b-37f6-4e3d-9145-1cfbe2f1fc28", "Elysian Tech", "Lumina Glow 4000")
 
+
+DEMO_HOUSE.register_device(entrance, Smart_lock)
+DEMO_HOUSE.register_device(entrance, Electricity_meter)
+DEMO_HOUSE.register_device(living_room, CO2_sensor)
+DEMO_HOUSE.register_device(living_room, Heat_Pump)
+DEMO_HOUSE.register_device(living_room, Motion_sensor)
+DEMO_HOUSE.register_device(Bathroom1, Humidity_sensor)
+DEMO_HOUSE.register_device(Guest_Room1, Smart_Oven1)
+DEMO_HOUSE.register_device(Garage, Automativc_Garage_Door)
+DEMO_HOUSE.register_device(Office, Smart_Plug)
+DEMO_HOUSE.register_device(Bathroom2, Dehumidifyer)
+DEMO_HOUSE.register_device(Guest_Room2, Light_Bulb)
+DEMO_HOUSE.register_device(Guest_Room3, Air_Quality_Sensor)
+DEMO_HOUSE.register_device(Master_Bedroom, Temperature_Sensor)
+DEMO_HOUSE.register_device(Master_Bedroom, Smart_Oven)
