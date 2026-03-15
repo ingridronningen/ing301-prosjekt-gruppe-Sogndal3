@@ -8,25 +8,29 @@ class Measurement:
         self.value = value
         self.unit = unit
 
-class device: 
-    def __init__(self, device_id, supplier, model_name):
-        self.device_id = device_id
+class Device: 
+    def __init__(self, id, supplier, model_name):
+        self.id = id
         self.supplier = supplier
         self.model_name = model_name
+        self.room = None
     
     def is_sensor(self): 
         return False
-    def is_actuatir(self):
+    def is_actuator(self):
         return False
     def get_device_type(self):
         return "Device"
-    
+    @property
+    def device_type(self): 
+        return self.get_device_type()
+
 import random
 from datetime import datetime
 
-class Sensor (device):
-    def __init__(self, device_id, supplier, model_name, unit, sensor_type):
-        super().__init__(device_id, supplier, model_name)
+class Sensor (Device):
+    def __init__(self, id, supplier, model_name, unit, sensor_type):
+        super().__init__(id, supplier, model_name)
         self.unit = unit
         self.sensor_type = sensor_type
     def is_sensor(self):
@@ -38,9 +42,9 @@ class Sensor (device):
         timestamp = datetime.now().isoformat()
         return Measurement(timestamp, value, self.unit)
     
-class Actuator(device): 
-    def __init__(self, device_id, supplier, model_name, actuator_type):
-        super().__init__(device_id, supplier, model_name)
+class Actuator(Device): 
+    def __init__(self, id, supplier, model_name, actuator_type):
+        super().__init__(id, supplier, model_name)
         self.actuator_type = actuator_type
         self._active = False
         self.target_value = None
@@ -52,7 +56,7 @@ class Actuator(device):
         self._active = True
         if target_value is not None: 
             self.target_value = target_value
-    def turn_on (self):
+    def turn_off (self):
         self._active = False
         self.target_value = None
     def is_active (self):
@@ -69,9 +73,9 @@ class Floor:
         return total 
     
 class Room: 
-    def __init__(self, area, name=None):
+    def __init__(self, area, room_name=None):
         self.area = area
-        self.name = name
+        self.room_name = room_name
         self.devices = []
 
 class SmartHouse:
@@ -127,7 +131,7 @@ class SmartHouse:
 
     def get_area(self):
         total = 0
-        for room in self.get_room():
+        for room in self.get_rooms():
             total += room.area
         return total
         """
@@ -135,16 +139,18 @@ class SmartHouse:
         """
 
     def register_device(self, room, device):
+        if device.room is not None:
+            device.room.devices.remove(device)
         room.devices.append(device)
-        self.devices[device.device_id] = device
+        device.room = room
+        self.devices[device.id] = device
         """
         This methods registers a given device in a given room.
         """
 
     
-    def get_device(self, device_id):
-        return self.devices.get(device_id)
+    def get_device(self):
+        return list(self.devices.values())
         """
         This method retrieves a device object via its id.
         """
-
