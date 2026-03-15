@@ -13,6 +13,12 @@ class device:
         self.device_id = device_id
         self.supplier = supplier
         self.model_name = model_name
+    def is_sensor(self): 
+        return False
+    def is_actuatir(self):
+        return False
+    def get_device_type(self):
+        return "Device"
 
 class Floor: 
     def __init__ (self, level): 
