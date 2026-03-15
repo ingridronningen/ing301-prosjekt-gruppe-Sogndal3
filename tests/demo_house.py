@@ -1,4 +1,4 @@
-from smarthouse.domain import SmartHouse, device
+from smarthouse.domain import SmartHouse, Device, Sensor, Actuator
 
 DEMO_HOUSE = SmartHouse()
 
@@ -7,7 +7,7 @@ ground_floor = DEMO_HOUSE.register_floor(1)
 entrance = DEMO_HOUSE.register_room(ground_floor, 13.5, "Entrance")
 guest_room1 = DEMO_HOUSE.register_room(ground_floor, 8, "Guest room 1")
 bathroom1 = DEMO_HOUSE.register_room(ground_floor, 6.3, "Bathroom 1")
-living_room = DEMO_HOUSE.register_room(ground_floor, 39.75, "Living Roon/Kitchen")
+living_room = DEMO_HOUSE.register_room(ground_floor, 39.75, "Living Room/Kitchen")
 garage = DEMO_HOUSE.register_room(ground_floor, 19, "Garage")
 
 secound_floor = DEMO_HOUSE.register_floor(2) 
@@ -17,23 +17,23 @@ bathroom2 = DEMO_HOUSE.register_room(secound_floor,9.25, "Bathroom 2")
 guest_room2 = DEMO_HOUSE.register_room(secound_floor, 8, "Guest room 2")
 guest_room3 = DEMO_HOUSE.register_room(secound_floor, 10, "Guest room 3")
 dressing_room = DEMO_HOUSE.register_room(secound_floor, 4, "Dressing room")
-master_bedroom = DEMO_HOUSE.register_room(secound_floor, 17, "Master Bedromm") 
+master_bedroom = DEMO_HOUSE.register_room(secound_floor, 17, "Master Bedroom") 
 
-# device 
-Smart_lock = device("4d5f1ac6-906a-4fd1-b4bf-3a0671e4c4f1", "MythicalTech", "Guardian Lock 7000")
-CO2_sensor = device("8a43b2d7-e8d3-4f3d-b832-7dbf37bf629e", "ElysianTech", "Smoke Warden 1000")
-Electricity_Meter = device ("a2f8690f-2b3a-43cd-90b8-9deea98b42a7", "MysticEnergy Innovations", "Volt Watch Elite")
-Heat_Pump = device ("5e13cabc-5c58-4bb3-82a2-3039e4480a6d", "ElysianTech", "Thermo Smart 6000")
-Motion_Sensor = device ("cd5be4e8-0e6b-4cb5-a21f-819d06cf5fc5", "NebulaGuard Innovations", "MoveZ Detect 69")
-Humidity_Sensor = device ("3d87e5c0-8716-4b0b-9c67-087eaaed7b45", "AetherCorp", "	Aqua Alert 800")
-Smart_Oven1 = device ("8d4e4c98-21a9-4d1e-bf18-523285ad90f6", "AetherCorp", "Pheonix HEAT 333")
-Automatic_Garage_Door = device ("9a54c1ec-0cb5-45a7-b20d-2a7349f1b132", "	MythicalTech", "Guardian Lock 9000")
-Smart_Oven2 = device ("c1e8fa9c-4b8d-487a-a1a5-2b148ee9d2d1", "IgnisTech Solutions", "Ember Heat 3000")
-Temperature_Sensor = device ("4d8b1d62-7921-4917-9b70-bbd31f6e2e8e", "AetherCorp", "SmartTemp 42")
-Air_Quality_Sensor = device ("7c6e35e1-2d8b-4d81-a586-5d01a03bb02c", "CelestialSense Technologies", "AeroGuard Pro")
-Smart_Plug = device ("1a66c3d6-22b2-446e-bf5c-eb5b9d1a8c79", "MysticEnergy Innovations", "FlowState X")
-Dehumidifier = device ("9e5b8274-4e77-4e4e-80d2-b40d648ea02a", "ArcaneTech Solutions", "Hydra Dry 8000")
-Light_Bulb = device ("6b1c5f6b-37f6-4e3d-9145-1cfbe2f1fc28", "Elysian Tech", "Lumina Glow 4000")
+ # device
+Smart_lock = Actuator("4d5f1ac6-906a-4fd1-b4bf-3a0671e4c4f1", "MythicalTech", "Guardian Lock 7000")
+CO2_sensor = Sensor("8a43b2d7-e8d3-4f3d-b832-7dbf37bf629e", "ElysianTech", "Smoke Warden 1000")
+Electricity_Meter = Sensor ("a2f8690f-2b3a-43cd-90b8-9deea98b42a7", "MysticEnergy Innovations", "Volt Watch Elite")
+Heat_Pump = Actuator ("5e13cabc-5c58-4bb3-82a2-3039e4480a6d", "ElysianTech", "Thermo Smart 6000")
+Motion_Sensor = Sensor ("cd5be4e8-0e6b-4cb5-a21f-819d06cf5fc5", "NebulaGuard Innovations", "MoveZ Detect 69")
+Humidity_Sensor = Sensor ("3d87e5c0-8716-4b0b-9c67-087eaaed7b45", "AetherCorp", "	Aqua Alert 800")
+Smart_Oven1 = Actuator ("8d4e4c98-21a9-4d1e-bf18-523285ad90f6", "AetherCorp", "Pheonix HEAT 333")
+Automatic_Garage_Door = Actuator ("9a54c1ec-0cb5-45a7-b20d-2a7349f1b132", "	MythicalTech", "Guardian Lock 9000")
+Smart_Oven2 = Actuator ("c1e8fa9c-4b8d-487a-a1a5-2b148ee9d2d1", "IgnisTech Solutions", "Ember Heat 3000")
+Temperature_Sensor = Sensor ("4d8b1d62-7921-4917-9b70-bbd31f6e2e8e", "AetherCorp", "SmartTemp 42")
+Air_Quality_Sensor = Sensor ("7c6e35e1-2d8b-4d81-a586-5d01a03bb02c", "CelestialSense Technologies", "AeroGuard Pro")
+Smart_Plug = Actuator ("1a66c3d6-22b2-446e-bf5c-eb5b9d1a8c79", "MysticEnergy Innovations", "FlowState X")
+Dehumidifier = Actuator ("9e5b8274-4e77-4e4e-80d2-b40d648ea02a", "ArcaneTech Solutions", "Hydra Dry 8000")
+Light_Bulb = Actuator ("6b1c5f6b-37f6-4e3d-9145-1cfbe2f1fc28", "Elysian Tech", "Lumina Glow 4000")
 
 
 DEMO_HOUSE.register_device(entrance, Smart_lock)
