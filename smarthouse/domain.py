@@ -13,12 +13,50 @@ class device:
         self.device_id = device_id
         self.supplier = supplier
         self.model_name = model_name
+    
     def is_sensor(self): 
         return False
     def is_actuatir(self):
         return False
     def get_device_type(self):
         return "Device"
+    
+import random
+from datetime import datetime
+
+class Sensor (device):
+    def __init__(self, device_id, supplier, model_name, unit, sensor_type):
+        super().__init__(device_id, supplier, model_name)
+        self.unit = unit
+        self.sensor_type = sensor_type
+    def is_sensor(self):
+        return True
+    def get_device_type(self):
+        return self.sensor_type
+    def last_measurement(self): 
+        value = round(random.uniform(0, 100), 2)
+        timestamp = datetime.now().isoformat()
+        return Measurement(timestamp, value, self.unit)
+    
+class Actuator(device): 
+    def __init__(self, device_id, supplier, model_name, actuator_type):
+        super().__init__(device_id, supplier, model_name)
+        self.actuator_type = actuator_type
+        self._active = False
+        self.target_value = None
+    def is_actuator(self):
+        return True
+    def get_device_type(self):
+        return self.actuator_type
+    def turn_on(self,target_value = None): 
+        self._active = True
+        if target_value is not None: 
+            self.target_value = target_value
+    def turn_on (self):
+        self._active = False
+        self.target_value = None
+    def is_active (self):
+        return self._active
 
 class Floor: 
     def __init__ (self, level): 
