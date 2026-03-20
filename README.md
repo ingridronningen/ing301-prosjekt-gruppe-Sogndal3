@@ -1,94 +1,160 @@
-# Startkode ING301 Prosjekt - Del A: Domenemodell og Basisfunksjonalitet
+# ING301 Prosjekt Del B: Persistens og database
 
-> [!NOTE]
-> Du kan gjerne fjerne innholdet i denne filen og skrive din egen dokumentasjon av SmartHus-applikasjonen i denne [README.md](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes) filen  etter at du har laget din kopi at dette repository!
+## Formål
 
+I det neste steget av prosjektet skal vi sørge for at den informasjonen som representeres i
+et objektstruktur lagres permanent på en hard-disk slik at vi ikke mister noe
+informasjonen når programmet avsluttes.
 
-## Steg 1: Utsjekk og 'kom i gang'
+For å gjøre dette skal vi bruke et lettvekt databasesystem: [SQLite](https://www.sqlite.org/index.html), som 
+også er [innebygget i Python sitt standard bibliotek](https://docs.python.org/3/library/sqlite3.html).
 
-**OBS! Det er bare en per gruppe som må utføre dette**
+Applikasjonen fra del A skal utvides slik at
+- den kan leser byggningsstrukturen og enhetsinformasjoner fra databasen,
+- tilstanden til aktuatorer lagres persistent i databasen og
+- man kan kjøre noen statistiske analyser og spørringer på sensormålinger.
 
-Trykk på "Use this template".
-Velg første opsjon "Create a new repository".
-Du kommer til en ny side.
-Her skal du gi repo'en et godt navn, f.eks. noe somm inneholder ing301 og ditt gruppenummer.
+## Setup
 
-![Skjermbilde: Hvordan man lager et nytt repository basert på en templat på GitHub](https://raw.githubusercontent.com/selabhvl/ing301public/main/resources/images/skjermbildet-template-repo.jpg)
+**Viktig Info:** Denne oppgaven bygger umiddelbart på Del A og det forventes at filene fra repository'et for del B 
+kopieres inn i et prosjekt der steg A er ferdig implementert. 
 
-Dere kan velge om repo skal være public eller private.
-For at de andre gruppemedlemmer kunne _pushe_ til din repo må du legge dem til med `Write`-rettigheter.
-Detter gjør du når du går til hovedsiden (dvs. `https://github.com/{ditt brukernavn}/{ditt valgte repo navn}`) og så på "Settings" > "Collaborators and teams" > "Add people":
-Du kan søke opp de andre med deres GitHub brukernavn eller epost.
-Hvis dere har valgt å ha deres repo privat må dere legge til [faglæreren](https://github.com/webminz) i dette repo med `Read`-rettigheter også.
+Du har to muligheter her:
 
-![Skjermbilde: Hvordan man legger til medlemmer i et repository på GitHub](https://raw.githubusercontent.com/selabhvl/ing301public/main/resources/images/screenshot-github-collaborators.png)
+1. Du bygger ummiddelbart videre på ditt eksisterende prosjekt, eller
+2. Du begynner med et "fersk" prosjekt basert på vår løsningsforlag (du finner det på Canvas)
 
-Når tilgangene er på plass kan alle i gruppen sjekke ut koden på vanlig måte.
-Trykk på "Code" på hovedsiden og så kopierer du URLen.
-I GitHub Dekstop på venstre siden trykker du på "Add" > "Clone Repository" og så limer du inn URLen.
-Da vil du få lastet ned koden lokalt og du kan begynne med prosjektet.
-Vi anbefaler at du åpner prosjektet i VS Code eller PyCharm som du hadde gjort med oppvarmingsoppgaven.
-
-## Steg 2: Mappestruktur
-
-Når dere åpner prosjektet vil dere se følgende mappestruktur
-
+Vi antar at prosjekt repository for del A ser noenlunne slik ut akkurat nå (eventuelt har dere laget fler Python moduler enn oss her):
 ```
 .
 ├── README.md
-├── domainmodel.[..]      <--- Her skal dere legger dere klassediagrammet dere har tegnet
-├── .gitignore
-├── .github
-│  └── workflows
-│     └── check-assignment-code.yaml
-├── .git
-│  └── ...
 ├── smarthouse
 │  ├── __init__.py
-│  └── domain.py          <--- Her skal dere legger inn deres klasser og utvide den eksisterende koden
+│  └── domain.py
 └── tests
    ├── __init__.py
-   ├── demo_house.py      <--- Her skal dere bygge opp "demohuset" ved å bruke deres klasser
-   └── test_part_a.py     <--- Målet til slutt er å få alle tester her til å bli "grønn"
+   ├── demo_house.py
+   └── test_part_a.py
 ```
 
-De _fire_ relevante plassene i denne mappestrukturen er markert med kommentarer.
+Dere skal nå kopiere de tre filene som befinner seg i repository'et for del B inn.
+Den enkleste måtem å gjøre det på er slik: Trykk på `Code` (grønne knappen) og så velger dere `Download ZIP`.
+Det nedlastede arkivet pakkes ut i roten av deres prosjektrepo, slik at de nye filene havner på rett plass.
+Den resulterende mappestrukturen skal se slik ut:
 
-## Steg 3: Sett i gang 
+```
+.
+├── data
+│  └── db.sql                   <-- nytt
+├── README.md
+├── smarthouse
+│  ├── __init__.py
+│  ├── domain.py
+│  └── persistence.py           <-- nytt
+└── tests
+   ├── __init__.py
+   ├── demo_house.py
+   ├── test_part_a.py
+   └── test_part_b.py           <-- nytt
+```
+Hvis dere har oppdatert inneholdet i `README.md`, pass på at dere ikker overskrive deres endringer! Flytt evt. README.md for del A over i en READMEA.m
 
-**For mange blir det sikkert første gang dere utvikler et større programvaresystem. Det er viktigå ta_"en dyp pust inn"_ før dere
-setter i gang. For å ikke bli overveldet, har vi lagt en steg-for-steg oppskrift hvordan denne oppgaven skal løses:**
+Hvis dere har laget andre filer med samme navn som dem som er gitt her, så må dere skifte navn på deres egne file først for at 
+alt fungerer (men det burde være lite sannsynlighet for det).
 
-1. Begynn med å lese nøye gjennom [Problembeskrivelsen](https://github.com/selabhvl/ing301public/blob/main/general/project/index.md) og lag deretter en _domenemodell_ (klassediagramm) av det hele.
-   Du skal lage forskjellige klasser for de forskjellige enhetene (devices). Inkluder også de klassene som allerede finnes i `smarthouse/domain.py`.
-   Du kan tegne klassedigramm enten på ark/whiteboard (husk å scanne det etterpå eller ta bilde) eller et grafisk verktøy som [diagrams.net](https://www.diagrams.net/) eller [Figma](https://www.figma.com/).
-   Klassediagrammet skal lagres enten som PDF eller bildefil (`.jpg`, `.png`, `.svg`) og lastes opp i roten til repo'en med navn `domainmodel.<filtype>` (dette skal være deres første egen commit!). 
-2. I neste steg skal klassediagrammet dere har laget oversettes til konkrete klasser i Python ved å utvide `smarthouse/domain.py` filen. 
-   Det betyr at dere skal legge til klasser som representer rom, etasjer og de forskjellige type enheter. 
-   Tenk på hva slags attributter (dvs. de som settes i konstruktor: `__init__`-funskjonen) og _metoder_ (funksjoner innen en klasse) hver enkelt klasse trenger.
-3. Som neste steg anbefaler vi at dere tar en kikk på klassen `SmartHouse` i `smarthouse/domain.py`: Her finner dere en rekke funksjoner som mangler en korrekt implementasjon.
-    Deres oppgave er å skrive funksjonaliteten til hver enkelt funksjon som det er beskrevet i kommentaren ved å bruke deres nylagte klasser.
-4. Etterpå kan dere begynne å legge inn et "Demo Hus" som er beskrevet på [denne siden](https://github.com/selabhvl/ing301public/blob/main/general/project/demo.md). Dette skal gjøres i files `tests/demo_house.py`
-    ved å bruke de forskjellige `register_`-funskjonene i `SmartHouse` som dere har nettop implementert. 
-5. Til slutt gjenstår det å få alle tester i `tests/test_part_a.py` til å bestå. Sjekk implementasjonskravene nedenfor for å sjekke 
-    om dere eventuelt trenger å utvide klassene deres med noen attributter eller metoder. 
+En liten forklaring på hva de tre nye filene gjør:
+- `data/db.sqlite` SQLite database filen som inneholder et ferdig datasett dere skal jobbe videre med
+- `smarthouse/persistence.py` inneholder et enkelt database grensesnitt klasse (`SmartHouseRepository`). Denne inneholder en del metoder som dere skal implementere.
+- `tests/test_part_b.py` inneholder tester som dere kan bruke for å sjekke om alt har blitt utviklet og fungerer.
+
+Når dere går inn og åpner `smarthouse/persistence.py` så finner dere 5 metoder dere skal implementere: 
+
+1. `load_smarthouse_deep()` (svarer til testene `test_basic_no_of_rooms()`, `test_basic_get_area_size()` og `test_basic_get_no_of_devices()`)
+2. `get_latest_reading()` (svarer til testen `test_basic_read_values()`)
+3. `update_actuator_state()` (svarer til testen `test_intermediate_save_actuator_state()`)
+4. `calc_avg_temperatures_in_room()` (svarer til testen `test_zadvanced_test_humidity_hours()`)
+5. `calc_hours_with_humidity_above()` (svarer til testen `test_zadvanced_test_temp_avgs()`)
+
+Hver metode har en kommentar som beskriver hva som skal gjøres.
+Den beste måten å komme i gang med denne oppgaven er å begynne med å _utforske_ databasen i (`data/db.sqlite`).
+
+## Utforsk tabellen
+
+Oppgaven deres er nå til å få alle testene å bli grønn.
+Før dere begynner med koding, kan det være lurt å utforske databasen litt i forkant.
+Dere kan bruke et verktøy som [DBeaver](https://dbeaver.io/) til dette.
+
+Når dere åpner DBeaver for første gang skal dere til venstre se et vindu som heter `Database Navigator`.
+Den ligner litt på filtre "explorer".
+
+**TIPS**: Hvis man har rotet seg bort å forskyvet vinduene hit og dit kan man komme seg tilbake til
+utgangspunktet ved å trykke på `Window` (i vindu menyen) -> `Reset Perspective`.
+
+Gjør så en høyreklikk i `Database Navigator` og  `Create` > `Connection` i kontekstmenyen.
+I det nye vinduet som kommer opp, velg `SQLite` og så `Next`.
+Cursoren skulle stå i et felt som heter `Path`.
+Her skal vi skrive inn filstien til `db.sqlite` filen.
+
+For å finne filstien:
+- Hvis dere bruker PyCharm: I Project-Explorer ved å høyreklikke på filen og så `Copy Path / Reference` -> `Absolute Path`.
+- Hvis dere bruker VS Code: Skrive `pwd` i terminalvinduet, kopiere inn den stien som blir gitt ut som resultat og setter `db.sqlite` på slutten.
+
+Nå kan dere lime inn den stien vi nettopp hadde kopiert i DBeaver vinduet.
+Hvis dere trykker på `Connection details (type, name, ...)`-knappen åpnes et nytt vindu da dere kan
+gi et mer dekkende navn til forbindelsen, f.eks `ING301ProjectB`.
+Dere avslutte med å trykke på `Finish`.
+
+Den nye forbindelsen dykker nå opp i `Database Navigator`.
+Gør en dobbelklikk på den.
+Nå skulle dere se en aktiv (dvs. den har et grønt sjekkmerke) forbindelse mot prosjektets `db.sqlite` fil.
+Når dere gjør en høyreklikk på den kan dere velge `SQL Editor` > `Open SQL Script` i kontekstmenyen.
+Nå velger dere `New Script` slik at et nytt editorvindu åpner seg der dere kan skrive SQL.
+F.eks kunne dere skrive 
+```sql
+SELECT name FROM sqlite_schema WHERE type = 'table';
+```
+for å finne ut hva tabeller det finnes og hva de heter.
+
+Når vi vet hvordan tabellene heter, kan dere kjøre en `SELECT` mot dem:
+```sql
+SELECT * FROM  rooms;
+```
+vil gi der romstrukturen av det demohuset dere kjenner fra første delen.
+
+## Mål og hvordan begynner jeg
+
+Målet er som sagt å få alle testene grønt.
+Testene kan deles inn i tre grupper:
+
+### `test_basic_...`
+
+Her må dere skrive enkle SQL `SELECT` spørringer i `load_smarthouse_deep()` og `get_latest_reading()` ved å bruke `cursor()`
+metoden i `SmartHouseRepository` klassen. Dere kan [ta en titt i Python dokumentasjon av `sqlite3` modulen](https://docs.python.org/3/library/sqlite3.html)
+for å sjekke hvordan skriver SQL i Python og håndterer resultatene.
+
+### `test_intermediate_...`
+
+Her må dere implementere funksjonalitet for at forandringer i objektene (aktuatorer) skal lagres varig i databasen.
+For å realisere dette må dere kanskje utvide database strukturen: Kanskje legge til tabeller med `CREATE TABLE` eller
+legge til en kolonne til en eksisterende tabell med `ALTER TABLE`.
+Etterpå må kanskje legges til noe data som oppretter koblinger mot de eksisterende radene ved å bruke `INSERT` før 
+dere til slutt kan bruke `UPDATE` for oppdatere radene i tabellen. 
+Husk å kalle `commit()` på `Connection` objektet for at endrinene blir med!
+
+### `test_advanced_...`
+
+De resterende testene svarer til "statistikk"-funksjonen i `SmartHouseRepository`.
+Konkret må dere skrive et tilsvarende `SELECT` spørring.
+Disse kan anses som "litt av en nøtt" men bare prøv å se hvor langt dere kommer.
+Følgende referanser kunne eventuelt være nyttig å bruke:
+
+- https://www.sqlite.org/lang_datefunc.html
+- https://www.w3resource.com/sql/subqueries/understanding-sql-subqueries.php
+- https://www.w3schools.com/sql/sql_having.asp
+
+Det kan være greit å utvikle i DBeaver først før dere legger det inn i et `cursor.execute("...")`
+
+Lykke til!
 
 
-### Implementasjonskrav
-
-I de gitte testene forventes det at objekter som representerer enheter tilbyr spesifikke funksjoner, konkret:
-
-- Alle enheter skal minst følgende attributter: `id`, `supplier`, `model_name` som inneholder den tekniske identifikatoren,
-  produsentnavn og modellnavn
-- Alle enheter skal minst tilby følgende metoder: `is_actuator()`, `is_sensor()`, og `get_device_type()`. Førstnevnte 
- returnerer en boolsk verdi som gir uttrykk for om enheten er en aktuator eller en sensor. Sistnevnte funksjon returnerer en 
- tekst (`str`) som beskriver hva konkret type enhet det er, f.eks `Heat Pump`, `Smart Lock`, osv.
-- Alle sensorer skal tilby en metode `last_measurement` som returnerer en objekt av type `Measurement`. Målenheten i målingen
- skal samsvare med måleenheten av sensoren (f.eks. måler en temperaturmåler i enheten celsius: `"°C"`). For verdien kan du velge 
- en helt tilfeldig numerisk verdi (du kan f.eks. bruke [random modulen](https://docs.python.org/3/library/random.html)) og `timestamp`
- skal være en tekstuell representasjon av et tidspunkt (du kan f.eks. bruke [ISO-8601](https://en.wikipedia.org/wiki/ISO_8601)).
-- Alle aktuatorer skal tilby metodene: `turn_on()`, `turn_off()`, `is_active()`. Sistnevnte skal returnere `True` hvis enheten har blitt slått 
- på med `turn_on()`. Ta også hensyn til at visse aktuatorer kan gis et "`target_value`" (f.eks. panelovn eller varmepumper kan settes til en ønsket temperatur).
-
-Ta gjerne en titt i [testfilen](https://github.com/selabhvl/ing301-projectpartA-startcode/blob/main/tests/test_part_a.py) for å sjekke hvilke funksjoner forventes av deres domenemodell.
 
