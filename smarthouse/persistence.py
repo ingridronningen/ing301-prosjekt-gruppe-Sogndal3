@@ -1,6 +1,6 @@
 import sqlite3
 from typing import Optional
-from smarthouse.domain import Measurement
+from smarthouse.domain import Measurement, SmartHouse, Room, Floor, Sensor, Actuator
 
 class SmartHouseRepository:
     """
@@ -38,8 +38,55 @@ class SmartHouseRepository:
         """
         # TODO: START here! remove the following stub implementation and implement this function 
         #       by retrieving the data from the database via SQL `SELECT` statements.
-        return NotImplemented
+        # (henter alle rom og devices, koble devices til rom og bygge et SmartHouse-objekt)
+        cursor = self.cursor()
 
+        cursor.execute ("SELECT * FROM rooms")  # henter rom
+        rooms_data = cursor.fetchall()
+
+        cursor.execute ("SELECT id, room, kind, category, supplier, product, state FROM devices")  # henter devices
+        devices_data = cursor.fetchall()
+
+        cursor.execute ("SELECT * FROM measurements")  # henter measurements
+        measurements_data = cursor.fetchall()
+
+        cursor.close()
+
+        house = SmartHouse()
+
+        room_map = {}    # Opprett rom og mapper for kobling
+        floors_map = {}
+        for r_id, floor_level, area, room_name in rooms_data:
+            if floor_level not in floors_map:   # Sjekk om etasjen allerede finnes
+                floor_obj = Floor(floor_level)
+                house.floors.append(floor_obj)
+                floors_map[floor_level] = floor_obj
+            else:
+                floor_obj = floors_map[floor_level]
+
+            room = Room(area, room_name)    # Opprett rom og legg til i etasjen
+            floor_obj.rooms.append(room)
+            room_map[r_id] = room
+
+        device_map = {}    # Opprett devices og koble til rom
+        for d_id, room_id, kind, category, supplier, product, state in devices_data:
+            room = room_map.get(room_id)
+
+            if kind.lower() == "sensor":
+                device = Sensor(d_id, supplier, product, unit="unknown", sensor_type=category)
+            else:
+                device = Actuator(d_id, supplier, product, actuator_type=category)
+                if state == 1:
+                    device.turn_on()
+                else:
+                    device.turn_off()
+
+            if room:    #legger device inn i rom 
+                room.devices.append(device)
+            house.devices[d_id] = device
+        
+        cursor.close()
+        return house
 
     def get_latest_reading(self, sensor) -> Optional[Measurement]:
         """
@@ -47,8 +94,24 @@ class SmartHouseRepository:
         Returns None if the given object has no sensor readings.
         """
         # TODO: After loading the smarthouse, continue here
-        return NotImplemented
+        #(henter siste måling fra measurments for en sensor)
 
+        if not sensor.is_sensor():
+            return None
+
+        cursor = self.cursor()
+        cursor.execute("""SELECT ts, value, unit FROM measurements WHERE device = ? ORDER BY ts DESC LIMIT 1 """, (sensor.id,))
+        row = cursor.fetchone()
+        cursor.close()
+
+        if row is None:
+            return None
+
+        return Measurement(
+            timestamp=row[0],
+            value=row[1],
+            unit=row[2]
+        )
 
     def update_actuator_state(self, actuator):
         """
@@ -58,8 +121,15 @@ class SmartHouseRepository:
         #       by creating a new table (`CREATE`), adding some data to it (`INSERT`) first, and then issue
         #       and SQL `UPDATE` statement. Remember also that you will have to call `commit()` on the `Connection`
         #       stored in the `self.conn` instance variable.
-        pass
-
+   
+        cursor = self.cursor()
+        cursor.execute("""
+            UPDATE devices
+            SET state = ?
+            WHERE id = ?
+        """, (1 if actuator.is_active() else 0, actuator.id))
+        self.conn.commit()
+        cursor.close()
 
     # statistics
 
@@ -76,7 +146,37 @@ class SmartHouseRepository:
         """
         # TODO: This and the following statistic method are a bit more challenging. Try to design the respective 
         #       SQL statements first in a SQL editor like Dbeaver and then copy it over here.  
-        return NotImplemented
+        #(SQL-spørring som henter temp målinger for et rom og regner gjennomsnitt per dag)
+        
+        cursor = self.cursor()
+
+        # Hent alle sensorer i rommet som har temperatur-data:
+        device_ids = [d.id for d in room.devices if d.is_sensor() and d.device_type.lower() == "temperature"]
+        if not device_ids:
+            return {}
+
+        # Lag SQL IN-list
+        placeholders = ','.join('?' for _ in device_ids)
+
+        sql = f"SELECT DATE(ts) as day, AVG(value) FROM measurements WHERE device IN ({placeholders})"
+        params = device_ids
+
+        # Legg til tidsbegrensning hvis gitt
+        if from_date:
+            sql += " AND DATE(ts) >= ?"
+            params.append(from_date)
+        if until_date:
+            sql += " AND DATE(ts) <= ?"
+            params.append(until_date)
+
+        sql += " GROUP BY day ORDER BY day"
+
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+        cursor.close()
+
+        # Lag dict med {dato: gjennomsnitt}
+        return {row[0]: row[1] for row in rows}
 
     
     def calc_hours_with_humidity_above(self, room, date: str) -> list:
@@ -87,5 +187,43 @@ class SmartHouseRepository:
         The result is a (possibly empty) list of number representing hours [0-23].
         """
         # TODO: implement
-        return NotImplemented
+        #(SQL-spørring som teller timer med >3 målinger over gjennomsnitt)
 
+        cursor = self.cursor()
+
+        # 1. Hent alle humidity-sensorer i rommet
+        device_ids = [d.id for d in room.devices if d.is_sensor() and "humidity" in d.device_type.lower()]
+        if not device_ids:
+            return []
+
+        placeholders = ",".join("?" for _ in device_ids)
+
+        # 2. Finn gjennomsnittlig humidity for rommet den dagen
+        sql_avg = f"""
+            SELECT AVG(value)
+            FROM measurements
+            WHERE device IN ({placeholders}) AND DATE(ts) = ?
+        """
+        cursor.execute(sql_avg, device_ids + [date])
+        avg_row = cursor.fetchone()
+        if avg_row is None or avg_row[0] is None:
+            cursor.close()
+            return []
+        avg_value = avg_row[0]
+
+        # 3. Finn timene med mer enn 3 målinger over gjennomsnittet
+        sql_hours = f"""
+            SELECT STRFTIME('%H', ts) AS hour
+            FROM measurements
+            WHERE device IN ({placeholders})
+                AND DATE(ts) = ?
+                AND value > ?
+            GROUP BY hour
+            HAVING COUNT(*) >= 3
+            ORDER BY hour;
+        """
+        cursor.execute(sql_hours, device_ids + [date, avg_value])
+        rows = cursor.fetchall()
+        cursor.close()
+
+        return [int(row[0]) for row in rows]
