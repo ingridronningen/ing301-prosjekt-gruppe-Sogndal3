@@ -41,34 +41,31 @@ class SmartHouseRepository:
         # (henter alle rom og devices, koble devices til rom og bygge et SmartHouse-objekt)
         cursor = self.cursor()
 
-        cursor.execute ("SELECT * FROM rooms")  # henter rom
+        cursor.execute ("SELECT id, floor, area, name FROM rooms")  # henter rom
         rooms_data = cursor.fetchall()
 
         cursor.execute ("SELECT id, room, kind, category, supplier, product, state FROM devices")  # henter devices
         devices_data = cursor.fetchall()
 
-        cursor.execute ("SELECT * FROM measurements")  # henter measurements
-        measurements_data = cursor.fetchall()
-
         cursor.close()
 
         house = SmartHouse()
 
-        room_map = {}    # Opprett rom og mapper for kobling
+        room_map = {}    # floor + room kobling 
         floors_map = {}
         for r_id, floor_level, area, room_name in rooms_data:
-            if floor_level not in floors_map:   # Sjekk om etasjen allerede finnes
-                floor_obj = Floor(floor_level)
-                house.floors.append(floor_obj)
-                floors_map[floor_level] = floor_obj
+            if floor_level not in floors_map:
+                floor = Floor(floor_level)
+                floors_map[floor_level] = floor
+                house.floors.append(floor)
             else:
-                floor_obj = floors_map[floor_level]
+                floor = floors_map[floor_level]
 
-            room = Room(area, room_name)    # Opprett rom og legg til i etasjen
-            floor_obj.rooms.append(room)
+            room = Room(area, room_name)
+            floor.rooms.append(room)
             room_map[r_id] = room
 
-        device_map = {}    # Opprett devices og koble til rom
+        # Opprett devices og koble til rom
         for d_id, room_id, kind, category, supplier, product, state in devices_data:
             room = room_map.get(room_id)
 
@@ -83,9 +80,9 @@ class SmartHouseRepository:
 
             if room:    #legger device inn i rom 
                 room.devices.append(device)
+
             house.devices[d_id] = device
         
-        cursor.close()
         return house
 
     def get_latest_reading(self, sensor) -> Optional[Measurement]:
@@ -96,22 +93,21 @@ class SmartHouseRepository:
         # TODO: After loading the smarthouse, continue here
         #(henter siste måling fra measurments for en sensor)
 
-        if not sensor.is_sensor():
-            return None
-
         cursor = self.cursor()
-        cursor.execute("""SELECT ts, value, unit FROM measurements WHERE device = ? ORDER BY ts DESC LIMIT 1 """, (sensor.id,))
+        cursor.execute(
+            """SELECT ts, value, unit 
+            FROM measurements 
+            WHERE device = ? 
+            ORDER BY ts DESC 
+            LIMIT 1""",
+            (sensor.id,)
+        )
         row = cursor.fetchone()
         cursor.close()
 
-        if row is None:
-            return None
-
-        return Measurement(
-            timestamp=row[0],
-            value=row[1],
-            unit=row[2]
-        )
+        if row:
+            return Measurement(timestamp=row[0], value=row[1], unit=row[2])
+        return None
 
     def update_actuator_state(self, actuator):
         """
@@ -123,11 +119,12 @@ class SmartHouseRepository:
         #       stored in the `self.conn` instance variable.
    
         cursor = self.cursor()
-        cursor.execute("""
-            UPDATE devices
-            SET state = ?
-            WHERE id = ?
-        """, (1 if actuator.is_active() else 0, actuator.id))
+        cursor.execute(
+            """UPDATE devices
+               SET state = ?
+               WHERE id = ?""",
+            (1 if actuator.is_active() else 0, actuator.id)
+        )
         self.conn.commit()
         cursor.close()
 
@@ -151,25 +148,31 @@ class SmartHouseRepository:
         cursor = self.cursor()
 
         # Hent alle sensorer i rommet som har temperatur-data:
-        device_ids = [d.id for d in room.devices if d.is_sensor() and d.device_type.lower() == "temperature"]
+        device_ids = [d.id for d in room.devices]
         if not device_ids:
             return {}
 
         # Lag SQL IN-list
-        placeholders = ','.join('?' for _ in device_ids)
+        placeholders = ",".join("?" for _ in device_ids)
 
-        sql = f"SELECT DATE(ts) as day, AVG(value) FROM measurements WHERE device IN ({placeholders})"
-        params = device_ids
+        sql = f"""
+            SELECT DATE(ts) as day, AVG(value)
+            FROM measurements
+            WHERE device IN ({placeholders})
+            AND unit = '°C'
+        """
+        params = list(device_ids)
 
         # Legg til tidsbegrensning hvis gitt
         if from_date:
             sql += " AND DATE(ts) >= ?"
             params.append(from_date)
+
         if until_date:
             sql += " AND DATE(ts) <= ?"
             params.append(until_date)
 
-        sql += " GROUP BY day ORDER BY day"
+        sql += " GROUP BY DATE(ts) ORDER BY DATE(ts)"
 
         cursor.execute(sql, params)
         rows = cursor.fetchall()
@@ -191,38 +194,39 @@ class SmartHouseRepository:
 
         cursor = self.cursor()
 
-        # 1. Hent alle humidity-sensorer i rommet
-        device_ids = [d.id for d in room.devices if d.is_sensor() and "humidity" in d.device_type.lower()]
+        # Hent alle humidity-sensorer i rommet
+        device_ids = [d.id for d in room.devices]
         if not device_ids:
             return []
 
         placeholders = ",".join("?" for _ in device_ids)
 
-        # 2. Finn gjennomsnittlig humidity for rommet den dagen
-        sql_avg = f"""
-            SELECT AVG(value)
-            FROM measurements
-            WHERE device IN ({placeholders}) AND DATE(ts) = ?
-        """
-        cursor.execute(sql_avg, device_ids + [date])
+        # 1. Finn gjennomsnittet for hele dagen i det rommet for enheter med '%'
+        cursor.execute(
+            f"SELECT AVG(value) FROM measurements WHERE device IN ({placeholders}) AND DATE(ts) = ? AND unit = '%'",
+            device_ids + [date]
+        )
         avg_row = cursor.fetchone()
-        if avg_row is None or avg_row[0] is None:
-            cursor.close()
+        if not avg_row or avg_row[0] is None:
             return []
-        avg_value = avg_row[0]
+        
+        day_avg = avg_row[0]
 
-        # 3. Finn timene med mer enn 3 målinger over gjennomsnittet
-        sql_hours = f"""
-            SELECT STRFTIME('%H', ts) AS hour
+        # 2. Finn timer som har MER enn 3 målinger som er høyere enn dette dagsgjennomsnittet
+        # "more than three" betyr > 3 (altså 4 eller flere)
+        sql = f"""
+            SELECT STRFTIME('%H', ts) as hour
             FROM measurements
-            WHERE device IN ({placeholders})
-                AND DATE(ts) = ?
-                AND value > ?
+            WHERE device IN ({placeholders}) 
+              AND DATE(ts) = ? 
+              AND unit = '%'
+              AND value > ?
             GROUP BY hour
-            HAVING COUNT(*) >= 3
-            ORDER BY hour;
+            HAVING COUNT(*) > 3
+            ORDER BY hour
         """
-        cursor.execute(sql_hours, device_ids + [date, avg_value])
+        
+        cursor.execute(sql, device_ids + [date, day_avg])
         rows = cursor.fetchall()
         cursor.close()
 
