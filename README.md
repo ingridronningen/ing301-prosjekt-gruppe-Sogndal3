@@ -1,160 +1,258 @@
-# ING301 Prosjekt Del B: Persistens og database
+## ING301 Prosjekt - Del C
 
-## Formål
+I del C av prosjektet skal dere implementere en nettverksapplikasjon bestående av fire deler:
 
-I det neste steget av prosjektet skal vi sørge for at den informasjonen som representeres i
-et objektstruktur lagres permanent på en hard-disk slik at vi ikke mister noe
-informasjonen når programmet avsluttes.
+- Et REST API for en smarthus sky-tjeneste ved bruk av rammeverket [FastAPI](https://fastapi.tiangolo.com)
+- En klient-applikasjon som representerer en temperatursensor som rapporterer målinger til sky-tjenesten
+- En klient-applikasjon som representerer en lyspære som endrer tilstand (av/på) basert tilstand satt i sky-tjenesten
+- En klient-applikasjon som gjør det mulig å hente målinger fra temperatursensoreren og sette tilstanden på lyspæren baser via sky-tjenesten.
 
-For å gjøre dette skal vi bruke et lettvekt databasesystem: [SQLite](https://www.sqlite.org/index.html), som 
-også er [innebygget i Python sitt standard bibliotek](https://docs.python.org/3/library/sqlite3.html).
+Samlet betyr det at en en bruker via sky-tjenesten kan få informasjon om temperaturen i huset og kan kontrollere lyspæren. 
 
-Applikasjonen fra del A skal utvides slik at
-- den kan leser byggningsstrukturen og enhetsinformasjoner fra databasen,
-- tilstanden til aktuatorer lagres persistent i databasen og
-- man kan kjøre noen statistiske analyser og spørringer på sensormålinger.
+Klient-applikasjonen skal basere seg på [requests-biblioteket](https://pypi.org/project/requests/) for å implementere bruk av REST API'et.
 
-## Setup
+Figuren nedenfor viser illustrerer den nettverksapplikasjon som dere skal ende opp med.
 
-**Viktig Info:** Denne oppgaven bygger umiddelbart på Del A og det forventes at filene fra repository'et for del B 
-kopieres inn i et prosjekt der steg A er ferdig implementert. 
+![](SmarthouseC.png)
 
-Du har to muligheter her:
 
-1. Du bygger ummiddelbart videre på ditt eksisterende prosjekt, eller
-2. Du begynner med et "fersk" prosjekt basert på vår løsningsforlag (du finner det på Canvas)
+### Oppgave 1: Hente start-koden
 
-Vi antar at prosjekt repository for del A ser noenlunne slik ut akkurat nå (eventuelt har dere laget fler Python moduler enn oss her):
+Start-koden for prosjektet er organisert på tilsvarende måte som de tidligere deler av prosjektet og inneholder løsningsforslaget fra del A. 
+
 ```
 .
-├── README.md
-├── smarthouse
-│  ├── __init__.py
-│  └── domain.py
-└── tests
+├── README.md    
+├── clients
    ├── __init__.py
-   ├── demo_house.py
-   └── test_part_a.py
-```
-
-Dere skal nå kopiere de tre filene som befinner seg i repository'et for del B inn.
-Den enkleste måtem å gjøre det på er slik: Trykk på `Code` (grønne knappen) og så velger dere `Download ZIP`.
-Det nedlastede arkivet pakkes ut i roten av deres prosjektrepo, slik at de nye filene havner på rett plass.
-Den resulterende mappestrukturen skal se slik ut:
-
-```
-.
-├── data
-│  └── db.sql                   <-- nytt
-├── README.md
+│  ├── actuatorclient.py  <-- nytt: her skal lyspære-klienten implementeres
+│  ├── app.py             <-- nytt: her skal bruker-klienten implementeres
+   ├── common.py          <-- nytt: her er klasse for utveksling a målinger/tilstander implementert
+│  └── sensorclient.py    <-- nytt: her skal temperaturmåler-klienten implementeres        
 ├── smarthouse
 │  ├── __init__.py
+│  ├── api.py           <-- nytt: her skal REST API (sky-tjenesten) for smarthuset implementeres
 │  ├── domain.py
-│  └── persistence.py           <-- nytt
-└── tests
-   ├── __init__.py
-   ├── demo_house.py
-   ├── test_part_a.py
-   └── test_part_b.py           <-- nytt
+│  └── dto.py           <-- nytt: klasser for dataoverføring mellom klienter og sky-tjenesten
+├── tests
+│  ├── __init__.py
+│  ├── bruno            <-- nytt: Bruno samling av forespørseler for testing av REST API
+│  │  └── ...
+│  ├── demo_house.py
+│  └── test_part_a.py
+└── www                 <-- nytt: en liten webside for å teste REST API'et
+   └── ...
 ```
-Hvis dere har oppdatert inneholdet i `README.md`, pass på at dere ikker overskrive deres endringer! Flytt evt. README.md for del A over i en READMEA.m
 
-Hvis dere har laget andre filer med samme navn som dem som er gitt her, så må dere skifte navn på deres egne file først for at 
-alt fungerer (men det burde være lite sannsynlighet for det).
+For å forenkle del C av prosjektet skal vi ikke bruke koden for persistens i database fra del B. De som ønsker kan kopiere egen løsning fra del A og eventuelt også integrere database-delen.
 
-En liten forklaring på hva de tre nye filene gjør:
-- `data/db.sqlite` SQLite database filen som inneholder et ferdig datasett dere skal jobbe videre med
-- `smarthouse/persistence.py` inneholder et enkelt database grensesnitt klasse (`SmartHouseRepository`). Denne inneholder en del metoder som dere skal implementere.
-- `tests/test_part_b.py` inneholder tester som dere kan bruke for å sjekke om alt har blitt utviklet og fungerer.
+Start med å klone dette start-kode repository på samme måten som tidligere ved å bruke "Use as Template" funksjonaliteten på GitHub og så klone ned til din lokale maskin.
 
-Når dere går inn og åpner `smarthouse/persistence.py` så finner dere 5 metoder dere skal implementere: 
+### Oppgave 2: Etablere virtuelt Python utviklingsmiljø 
 
-1. `load_smarthouse_deep()` (svarer til testene `test_basic_no_of_rooms()`, `test_basic_get_area_size()` og `test_basic_get_no_of_devices()`)
-2. `get_latest_reading()` (svarer til testen `test_basic_read_values()`)
-3. `update_actuator_state()` (svarer til testen `test_intermediate_save_actuator_state()`)
-4. `calc_avg_temperatures_in_room()` (svarer til testen `test_zadvanced_test_humidity_hours()`)
-5. `calc_hours_with_humidity_above()` (svarer til testen `test_zadvanced_test_temp_avgs()`)
+> [VIKTIGT]
+> Dette prosjektet forutsetter at du bruker Python versjon **3.12** eller nyere.
+> Hvis `python -V` viser et tall lavere enn `3.12.0` så må du [først installere](https://wiki.python.org/moin/BeginnersGuide/Download)
+> den nyeste Python versjonen og [legger den på din `PATH`](https://docs.python.org/3/using/windows.html#excursus-setting-environment-variables).
 
-Hver metode har en kommentar som beskriver hva som skal gjøres.
-Den beste måten å komme i gang med denne oppgaven er å begynne med å _utforske_ databasen i (`data/db.sqlite`).
+For implementasjon av nettverksapplikasjonen skal vi bruke HTTP-protokollen for kommunikasjon mellom klient-applikasjonene og sky-tjenesten og bygge på to biblioteketer:
 
-## Utforsk tabellen
+- [FastAPI](https://fastapi.tiangolo.com) for å implementere REST API for sky-tjenesten (server-siden)
+- [Requests](https://pypi.org/project/requests/) for å implementere REST API klienter (klient-siden)
 
-Oppgaven deres er nå til å få alle testene å bli grønn.
-Før dere begynner med koding, kan det være lurt å utforske databasen litt i forkant.
-Dere kan bruke et verktøy som [DBeaver](https://dbeaver.io/) til dette.
+Ingen av disse modulene/pakkene er del Python sin standard bibliotek og må derfor installeres som [Python Packages](https://packaging.python.org/en/latest/overview/).
+Installasjon av packages kan være en utfordring siden en må manøvrere ting som [Externally Managed Environments](https://packaging.python.org/en/latest/specifications/externally-managed-environments/#externally-managed-environments) og package managers som [`pip`](), [`conda`](), [`poetry`](). Dette kan være utfordrende i starten!
 
-Når dere åpner DBeaver for første gang skal dere til venstre se et vindu som heter `Database Navigator`.
-Den ligner litt på filtre "explorer".
+Det er god praksis å lage et [virtual environment](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) for hvert Python prosjekt.  Dette gjør at en kan styre hvilken Python-fortolker som skal brukes og holde installerte pakker adskilt mellom ulike prosjekt.
 
-**TIPS**: Hvis man har rotet seg bort å forskyvet vinduene hit og dit kan man komme seg tilbake til
-utgangspunktet ved å trykke på `Window` (i vindu menyen) -> `Reset Perspective`.
+For de som bruker PyCharm eller VSCode kan et virtuelt Python miljø etableres via grensesnittet når et prosjekt for koden opprettes. 
 
-Gjør så en høyreklikk i `Database Navigator` og  `Create` > `Connection` i kontekstmenyen.
-I det nye vinduet som kommer opp, velg `SQLite` og så `Next`.
-Cursoren skulle stå i et felt som heter `Path`.
-Her skal vi skrive inn filstien til `db.sqlite` filen.
+Alternativt kan et virtual environment opprettes ved å åpne et nytt terminalvindu og så bevege seg inn i prosjektmappen.
 
-For å finne filstien:
-- Hvis dere bruker PyCharm: I Project-Explorer ved å høyreklikke på filen og så `Copy Path / Reference` -> `Absolute Path`.
-- Hvis dere bruker VS Code: Skrive `pwd` i terminalvinduet, kopiere inn den stien som blir gitt ut som resultat og setter `db.sqlite` på slutten.
-
-Nå kan dere lime inn den stien vi nettopp hadde kopiert i DBeaver vinduet.
-Hvis dere trykker på `Connection details (type, name, ...)`-knappen åpnes et nytt vindu da dere kan
-gi et mer dekkende navn til forbindelsen, f.eks `ING301ProjectB`.
-Dere avslutte med å trykke på `Finish`.
-
-Den nye forbindelsen dykker nå opp i `Database Navigator`.
-Gør en dobbelklikk på den.
-Nå skulle dere se en aktiv (dvs. den har et grønt sjekkmerke) forbindelse mot prosjektets `db.sqlite` fil.
-Når dere gjør en høyreklikk på den kan dere velge `SQL Editor` > `Open SQL Script` i kontekstmenyen.
-Nå velger dere `New Script` slik at et nytt editorvindu åpner seg der dere kan skrive SQL.
-F.eks kunne dere skrive 
-```sql
-SELECT name FROM sqlite_schema WHERE type = 'table';
+Her utfører du følgende kommando:
+```bat
+python -m venv .venv
 ```
-for å finne ut hva tabeller det finnes og hva de heter.
-
-Når vi vet hvordan tabellene heter, kan dere kjøre en `SELECT` mot dem:
-```sql
-SELECT * FROM  rooms;
+hvis du bruker Windows, eller
+```bash
+python3 -m venv .venv
 ```
-vil gi der romstrukturen av det demohuset dere kjenner fra første delen.
+hvis du bruker Linux/UNIX/MacOS.
 
-## Mål og hvordan begynner jeg
+Hvis du får en melding som `module 'venv' not found` så må du installere den først i din system interpreter med:
+```bat 
+python -m pip install venv
+```
+Vær obs på at under noen operativsystemer/installasjoner der 
+[Python fortolkeren forvaltes av operativsystemet eller tilsvarende pakkeforvaltning](https://packaging.python.org/en/latest/specifications/externally-managed-environments/#externally-managed-environments),
+så må `venv`-modulen installeres gjennom operativsystemets pakkeforvaltning, f.eks.
+```bash
+sudo apt-get install python3-venv # Debian/Ubuntu
+brew install virtualenv # brukere av Homebrew under MacOS
+choco install python3-virtualenv # brukere av Chocolatey under Windows
+```
 
-Målet er som sagt å få alle testene grønt.
-Testene kan deles inn i tre grupper:
+Etter at det virtuelle Python miljøet er blitt opprettet må det aktiveres med
+```bat 
+.venv\Scripts\Activate.ps1
+```
+under Windows (vi antar at du bruker PowerShell), eller 
+```shell
+source .venv/bin/activate
+```
+under Linux/UNIX/MacOS.
 
-### `test_basic_...`
+Du vil nå se at ledeteksten i konsollen har forandret seg litt og hvis du nå sjekker hvilke `python` og `pip` er som aktive:
 
-Her må dere skrive enkle SQL `SELECT` spørringer i `load_smarthouse_deep()` og `get_latest_reading()` ved å bruke `cursor()`
-metoden i `SmartHouseRepository` klassen. Dere kan [ta en titt i Python dokumentasjon av `sqlite3` modulen](https://docs.python.org/3/library/sqlite3.html)
-for å sjekke hvordan skriver SQL i Python og håndterer resultatene.
+Windows:
+```bat
+Get-Command python 
+Get-Command pip
+```
 
-### `test_intermediate_...`
+Linux/UNIX/MacOS
+```bash
+which python 
+which pip
+```
 
-Her må dere implementere funksjonalitet for at forandringer i objektene (aktuatorer) skal lagres varig i databasen.
-For å realisere dette må dere kanskje utvide database strukturen: Kanskje legge til tabeller med `CREATE TABLE` eller
-legge til en kolonne til en eksisterende tabell med `ALTER TABLE`.
-Etterpå må kanskje legges til noe data som oppretter koblinger mot de eksisterende radene ved å bruke `INSERT` før 
-dere til slutt kan bruke `UPDATE` for oppdatere radene i tabellen. 
-Husk å kalle `commit()` på `Connection` objektet for at endrinene blir med!
+Da vil du se at disse nå peker mot den `.venv`-mappen som ble opprettet før.
 
-### `test_advanced_...`
+### Opppgave 3: Installere avhengigheter
 
-De resterende testene svarer til "statistikk"-funksjonen i `SmartHouseRepository`.
-Konkret må dere skrive et tilsvarende `SELECT` spørring.
-Disse kan anses som "litt av en nøtt" men bare prøv å se hvor langt dere kommer.
-Følgende referanser kunne eventuelt være nyttig å bruke:
+Nå det virtuelle Python miljø er på plass er det lurt å sjekke om `pip` der og oppdatert:
+```shell
+pip install --upgrade pip
+```
 
-- https://www.sqlite.org/lang_datefunc.html
-- https://www.w3resource.com/sql/subqueries/understanding-sql-subqueries.php
-- https://www.w3schools.com/sql/sql_having.asp
+Når `pip` er på plass kan _FastAPI_ samt _requests_ installeres ved å kjøre følgende kommandoer:
+```
+pip install "fastapi[standard]" 
+pip install requests
+```
 
-Det kan være greit å utvikle i DBeaver først før dere legger det inn i et `cursor.execute("...")`
+Nå skulle alt være på plass for å kunne start sky-tjeneste applikasjonen:
 
-Lykke til!
+```bash
+fastapi dev smarthouse/api.py
+```
 
+Når konsollen viser noe slik:
+```
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [28720]
+INFO:     Started server process [28722]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+```
+så er REST API sky-tjenesten klar! Du kan åpner nettleseren på 
+
+> <http://127.0.0.1:8000>
+
+for å se en liten demoside og 
+
+> <http://127.0.0.1:8000/docs>
+
+vil gi deg en oversikt over REST endepunktene som finnes.
+
+#### Et par ting vedrørende virtuelle Python miljø
+
+Enn så lenge du holder konsollen åpen så vil være web-tjeneren være aktivt.  I tillegg vil den automatisk reagere på alle endringer i koden og automatisk oppdatere seg slik  at du får en nesten sømløs opplevelse.
+Når du vil likevel avslutte applikasjonen må du sette fokus på terminalvinduet også trykker du <kbd>Ctrl</kbd> + <kbd>C</kbd>
+samtidig, da kommer du tilbake til ledeteksten.
+
+Hvis du vil gå ut av det virtuelle Python miljøet (f.eks. for å jobbe med et annen Python projsket) kan du kalle:
+```bash
+deactivate
+```
+
+For å komme inn i det virtuelle miljøet igjen gjør du akkurat likt som beskrevet ovenfor ved å kalle `activate`.
+Husk at dette også må gjøres når du starter PCen din på nytt eller du åpner et nytt terminalvindu.
+
+I tillegg vil du kanskje også at din editor eller IDE samarbeider med det virtuelle miljøet. 
+Sjekk dokumentasjonen til [VS Code](https://code.visualstudio.com/docs/python/environments#_working-with-python-interpreters) eller [PyCharm](https://www.jetbrains.com/help/pycharm/creating-virtual-environment.html).
+I de fleste tilfellene vil disse automatisk oppdager at det finnes en `venv` i ditt prosjekt og forholder seg tilsvarende.
+
+### Oppgave 4: Installere Bruno for testing av REST API
+
+Hvis du ikke allerede har gjort det, så last ned [Bruno](https://www.usebruno.com/), 
+start det, lag en ny "collection" og prøv å sende en HTTP GET request til `http:127.0.0.1:8000/hello`.
+
+### Oppgave 5: Implementere REST API for smarthuset
+
+For å løse oppgaven kan det være en god idé å se tilbake på forelesningen der FastAPI ble brukt til å utvikle et REST API for sykkelcomputer eksemplet. Det er også hjelp å hente i dokumentasjonen for FastAPI som finnes via: <https://fastapi.tiangolo.com>
+
+REST API sky-tjenesten for smarthuset skal implementeres i `smarthouse/api.py` og bestå av endepunktene (tjeneste) som beskrevet nedenfor.
+
+Der skal implementeres endepunkter for å få informasjon om strukturen til smarthuset:
+
+- `GET smarthouse/` - information on the smart house
+- `GET smarthouse/floor` - information on all floors
+- `GET smarthouse/floor/{fid}` - information about a floor given by `fid` 
+- `GET smarthouse/floor/{fid}/room` - information about all rooms on a given floor `fid`
+- `GET smarthouse/floor/{fid}/room/{rid}`- information about a specific room `rid` on a given floor `fid`
+- `GET smarthouse/device` - information on all devices
+- `GET smarthouse/device/{uuid}` - information for a given actuator identfied by `uuid`
+
+Der skal implementeres endepunkter for tilgang til sensor-ressurser:
+
+- `GET smarthouse/sensor/{uuid}` - information for a given sensor identfied by `uuid`
+- `GET smarthouse/sensor/{uuid}/current` - get current sensor measurement for sensor `uuid`
+- `PUT smarthouse/sensor/{uuid}/current` - update measurement for sensor `uuid`
+- `DELETE smarthouse/sensor/{uuid}/current` - delete current measurements for sensor `uuid`
+
+Der skal implementeres endepunkter for tilgang til aktuator-ressurser:
+
+- `GET smarthouse/actuator/{uuid}/state` - get current state for actuator `uuid`
+- `PUT smarthouse/actuator/{uuid}/state` - update current state for actuator `uuid`
+
+Informasjon om ressurser som returneres fra endepunktet eller sendes til endepunktet skal være i [JSON](https://www.json.org/json-en.html)-formatet.
+
+FastAPI er i stand til å automatisk overføre Python objekter til JSON i tilfelle av innebygde Python verdier:
+
+- strenger (`str`),
+- tall (`int`, `float`),
+- sannhetsverdier (`bool`),
+- `None`-verdien,
+- lister og ordbøker med streng-nøkler som igjen inneholder lister, ordbøker eller verdiene nevnt ovenfor.
+
+Når du har definert din egen klasse må du i utgangspunktet skrive din egen _serialiserings_-mekanisme til/fra JSON format.
+Men en kan også bruke [Pydantic](https://docs.pydantic.dev/latest/)-biblioteket (den kommer automatisk med når man installerer FastAPI)
+for å [oversette dine egne klasser automatisk](https://docs.pydantic.dev/latest/concepts/models/). For å bruke Pydantic må du definere dine egne klasser som subklasser av `BaseModel`-klassen i Pydantic og da kan du bruke disse klassene i dine endepunkts-funksjoner for å automatisk få oversettelse til/fra JSON.
+
+Filen `smarthouse/dto.py` inneholder starten på noen klasser basert på Pydantic som kan brukes som bindeled mellom implementasjon av REST API endepunktene i `smarthouse/api.py`  som sender JSON til/fra sky-tjenesten og informasjonen om smarthuset som er lagret i objektene av `SmartHouse`-klassene i `smarthouse/domain.py`. Prinsippet er at klassene i `smarthouse/dto.py` brukes som data transfer objekter, slik at data for smarthuset som skal returneres fra et endepunkt hentes ut og lagres i et slikt objekt og at informasjon som sendes til smarthuset via et endepunkt blir oversatt til et slikt objekt før det brukes for å oppdatere informasjonen i smarthuset.
+
+#### Testing av endepunkter i sky-tjenesten 
+
+En del av oppgaven er å teste om endepunktene i REST API'et fungerer. 
+
+For dette finnes en _Collection_ av test-request for smarthuset sky-tjenesten under `tests/bruno`.
+Du kan åpne denne samlingen ved å trykke "Open Collection" når du starter Bruno på første gang  eller hvis du allerede har lagt noen collections selv så trykker du på `+`-ikonet oppe til høyre og velger "_Open Collection_" derifra. Det åpner seg en filutforsker-vindu der du kan navigere til den nevnte mappen i filsystemet. 
+
+Kjør testene etterhvert som du implementerer endepunktene for å sjekke at de fungerer som forventet. De skal returnere informasjon svarende til det som er definert for demo smarthuset som legger under `tests/demo_house.py`.
+
+# Oppgave 6: Klient-applikasjoner for enheter
+
+I denne oppgaven skal der implementeres klient-applikasjoner som gjør det mulig for :
+
+- aktuatorer å hente deres tilstand fra sky-tjenesten og sette deres tilstand i henhold til dette 
+- sensorer kan sende deres aktuelle målinger til sky-tjenesten
+
+For å forenkle oppgaven skal det kun implementeres klient-applikasjoner for to enheter (devices) i demo smarthuset:
+
+- Sensor: Temperatursensor (uuid=`4d8b1d62-7921-4917-9b70-bbd31f6e2e8e`)
+- Actuator: Lyspære (LightBulb) (uuid=`6b1c5f6b-37f6-4e3d-9145-1cfbe2f1fc28`)
+
+Start-koden for disse to enheter finnes i filene `actuatorclient.py` og `sensorclient.py` i mappen `clients`. Filen `common.py` inneholder noen klasser som kan brukes for utveksling av informasjon mellom klient-applikasjonene og sky-tjenesten.
+
+Test klient-applikasjonen ved å kjøre det samtidig som sky-tjenesten fra oppgave 5 og sjekk ved at bruke testenne i Bruno at temperaturen for temperatursensoren oppdateres i sky-tjenesten og at tilstanden for lyspæren hentes ned og settes korrekt også når den tilstanden endres ved å sende en request til sky-tjenesten fra Bruno.
+
+# Oppgave 7: Bruker-applikasjon for smarthuset
+
+I denne oppgaven skal der implementeres en bruker-applikasjon som gjør det mulig for en bruker å seneste måling fra temperwaturesensorer og sette tilstanden på lyspæren via sky-tjenesten.
+
+Startkoden for bruker-applikasjonen finnes i filen `app.py` i mappen `clients`. Her kan det også være nyttig å bruke klassene i `common.py` for å utveksle informasjon mellom bruker-applikasjonen og sky-tjenesten.
+
+Test til slutt hele system ved å starte sky-tjenesten, de to klient applikasjoner for enhetene og slutt-bruker applikasjonen. Se at den aktuelle temperatur kan hentes fra sky-tjenesten og at bruker-applikasjonen kan anvendes til å slå lyspæren av og på.
 
 

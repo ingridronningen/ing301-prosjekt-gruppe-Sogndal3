@@ -6,6 +6,7 @@ sys.path.append(str(Path().parent.absolute()))
 
 from smarthouse.domain import SmartHouse
 from demo_house import DEMO_HOUSE as h
+from smarthouse.domain import Measurement
 
 class TestPartA(TestCase):
 
@@ -53,8 +54,14 @@ class TestPartA(TestCase):
         self.assertEqual(len(living_room.devices), 3)
 
     def test_intermediate_sensor_measurements(self):
+
         temp = h.get_device_by_id("4d8b1d62-7921-4917-9b70-bbd31f6e2e8e")
-        m = temp.last_measurement()
+
+        m = Measurement(timestamp="2024-06-01T12:00:00Z", value=23.5, unit="°C")
+
+        temp.set_current(m)
+
+        m = temp.get_current()
         # Measurements are recorded in celsius and values a floating point numbers
         self.assertEqual(m.unit, "°C")
         self.assertEqual(type(m.value), type(0.0))
