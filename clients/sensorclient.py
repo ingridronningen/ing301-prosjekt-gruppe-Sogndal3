@@ -1,3 +1,4 @@
+
 import time
 import math
 import requests
@@ -45,7 +46,26 @@ class SensorClient:
         logging.info(f"Sensor client {self.did} update starting")
         response = None
 
-        # TODO
+        url = f"http://127.0.0.1:8000/smarthouse/sensor/{self.did}/current"
+        
+        payload = {
+            "value": float(m.value),
+            "unit": m.unit,
+            "timestamp": m.timestamp
+        }
+
+        response = None
+        try:
+            response = requests.put(url, json=payload)
+            
+            if response.status_code == 200:
+                logging.info(f"Sensor {self.did} successfully updated cloud")
+            else:
+                logging.error(f"Failed to update sensor {self.did}. Status: {response.status_code}")
+        
+        except Exception as e:
+            logging.error(f"Connection error for sensor {self.did}: {e}")
+
         return response
 
 
