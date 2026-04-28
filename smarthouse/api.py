@@ -20,10 +20,10 @@ smarthouse = DEMO_HOUSE
 if not (Path.cwd() / "www").exists():
     os.chdir(Path.cwd().parent)
 if (Path.cwd() / "www").exists():
-    # http://localhost:8000/welcome/index.html
+    # http://localhost:8001/welcome/index.html
     app.mount("/static", StaticFiles(directory="www"), name="static")
 
-# http://localhost:8000/ -> welcome page
+# http://localhost:8001/ -> welcome page
 @app.get("/")
 def root():
     return RedirectResponse("/static/index.html")
@@ -170,5 +170,5 @@ def update_sensor_state(uuid: str, target_state: ActuatorStateInfo) -> Response:
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000) 
+    uvicorn.run(app, host="127.0.0.1", port=8001) 
 
