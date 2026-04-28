@@ -37,23 +37,39 @@ class SmartHouseApp:
         the current state of the light bulb actuator
         """
 
-        # TODO START
+        url = common.BASE_URL + f"actuator/{self.actuator_did}/state"
+
+        payload = {
+            "state": new_state == "on",
+            "value": None
+        }
+
+        response = requests.put(url, json=payload)
+
+        return response
 
         pass
 
-        # TODO END
-
+    
     def get_temperature(self) -> float:
         """
         This method sends a GET request to the cloud state to obtain
         the current temperature recorded for the temperature sensor
         """
 
-        # TODO START
+        url = common.BASE_URL + f"sensor/{self.sensor_did}/current"
+
+        response = requests.get(url)
+
+        if response.status_code == 200:
+            data = response.json()
+            return float(data["value"])
+
+        return None
 
         pass
 
-        # TODO END
+
 
     def main(self):
 
