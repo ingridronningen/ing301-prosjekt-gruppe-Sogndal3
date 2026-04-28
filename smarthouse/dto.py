@@ -48,22 +48,42 @@ class RoomInfo(BaseModel):
 
     @staticmethod
     def from_obj(room: Room) -> RoomInfo:
-
-        # TODO
-        pass
+        return RoomInfo(
+            rid=room.rid,
+            room_size=room.room_size,
+            room_name=room.room_name,
+            floor=room.floor.level,
+            devices=[d.id for d in room.devices] 
+        )
 
 class DeviceInfo(BaseModel):
-
-    # TODO
+    uuid: str
+    name: str
+    type: str 
+    room: int | None
 
     @staticmethod
     def from_obj(device: Device) -> DeviceInfo:
+        # Bestemmer type-strengen basert på klassen
+        if isinstance(device, ActuatorWithSensor):
+            d_type = "both"
+        elif isinstance(device, Sensor):
+            d_type = "sensor"
+        elif isinstance(device, Actuator):
+            d_type = "actuator"
+        else:
+            d_type = "unknown"
 
-        # TODO
-        pass
+        return DeviceInfo(
+            uuid=device.id,
+            name=device.model_name,
+            type=d_type,
+            room=device.room.rid if device.room else None
+        )
 
 class ActuatorStateInfo(BaseModel):
+    state: Union[float, bool]
 
-    # TODO
-    pass
-
+    @staticmethod
+    def from_obj(actuator: Actuator) -> ActuatorStateInfo:
+        return ActuatorStateInfo(state=actuator.state)

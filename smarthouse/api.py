@@ -58,28 +58,35 @@ def get_floor(fid: int) -> Response:
 
 @app.get("/smarthouse/floor/{fid}/room")
 def get_rooms(fid: int) -> list[RoomInfo]:
-    rooms_in_floor = [r for r in smarthouse.get_rooms() if r.floor.level == fid]
-    return [RoomInfo.from_obj(r) for r in rooms_in_floor]
+    for f in smarthouse.get_floors():
+        if f.level == fid:
+            # Bruker RoomInfo.from_obj for å konvertere hvert rom
+            return [RoomInfo.from_obj(r) for r in f.rooms]
+    return []
 
 @app.get("/smarthouse/floor/{fid}/room/{rid}")
 def get_room(fid: int, rid: int) -> Response:
-    for r in smarthouse.get_rooms():
-        if r.floor.level == fid and r.rid == rid:
-            return JSONResponse(content=jsonable_encoder(RoomInfo.from_obj(r)))
-
-    return Response(status_code=404)
+    for f in smarthouse.get_floors():
+        if f.level == fid:
+            for r in f.rooms:
+                # Sjekk om rom-id (rid) matcher. Merk: sjekk hva variabelnavnet for ID er i din Room-klasse
+                if r.rid == rid: 
+                    return JSONResponse(content=jsonable_encoder(RoomInfo.from_obj(r)))
+    return Response(status_code=404)    
 
 @app.get("/smarthouse/device")
 def get_devices() -> list[DeviceInfo]:
-
-    return [DeviceInfo.from_obj(d) for d in smarthouse.get_devices()]
+    devices = smarthouse.get_devices()
+    return [DeviceInfo.from_obj(d) for d in devices]
 
 @app.get("/smarthouse/device/{uuid}")
 def get_device(uuid: str) -> Response:
     device = smarthouse.get_device_by_id(uuid)
     if device:
+        # Vi bruker jsonable_encoder for å gjøre Pydantic-objektet klart for JSONResponse
         return JSONResponse(content=jsonable_encoder(DeviceInfo.from_obj(device)))
-
+    
+    # Returnerer 404 hvis enheten ikke finnes
     return Response(status_code=404)
 
 #
@@ -90,28 +97,32 @@ def get_device(uuid: str) -> Response:
 def read_measurement(uuid: str) -> Response:
     device = smarthouse.get_device_by_id(uuid)
     if device and device.is_sensor():
-        current_m = device.get_current()
-        if current_m:
-            return JSONResponse(content=jsonable_encoder(current_m))
-
+        measurement = device.get_current()
+        if measurement:
+            return JSONResponse(content=jsonable_encoder(measurement))
+        return Response(status_code=404) # Eller 204 No Content hvis man foretrekker det
     return Response(status_code=404)
 
 @app.put("/smarthouse/sensor/{uuid}/current")
 def update_sensor_measurement(uuid: str, measurement: Measurement) -> Response:
+    # 1. Finn enheten i huset
     device = smarthouse.get_device_by_id(uuid)
+    
+    # 2. Sjekk om den finnes og faktisk er en sensor
     if device and device.is_sensor():
+        # 3. Bruk metoden fra domain.py til å lagre målingen
         device.set_current(measurement)
-        return Response(status_code=204)
-
+        return Response(status_code=200)
+    
+    # Hvis enheten ikke finnes eller ikke er en sensor
     return Response(status_code=404)
 
 @app.delete("/smarthouse/sensor/{uuid}/current")
 def delete_measurement(uuid: str) -> Response:
     device = smarthouse.get_device_by_id(uuid)
     if device and device.is_sensor():
-        device.set_current(None)
-        return Response(status_code=204)
-    
+        device.current = None  # Sletter den nåværende målingen
+        return Response(status_code=200)
     return Response(status_code=404)
 
 #
@@ -122,24 +133,16 @@ def delete_measurement(uuid: str) -> Response:
 def read_actuator_state(uuid: str) -> Response:
     device = smarthouse.get_device_by_id(uuid)
     if device and device.is_actuator():
-        state_info = ActuatorStateInfo(
-            state=device.is_active(),
-            value=device.state if isinstance(device.state, float) else None
-        )
-        return JSONResponse(content=jsonable_encoder(state_info))
-
+        return JSONResponse(content=jsonable_encoder(ActuatorStateInfo.from_obj(device)))
     return Response(status_code=404)
 
 @app.put("/smarthouse/actuator/{uuid}/state")
 def update_sensor_state(uuid: str, target_state: ActuatorStateInfo) -> Response:
     device = smarthouse.get_device_by_id(uuid)
-    if device and device.is_actuator():
-        if target_state.state:
-            device.turn_on(target_state.value)
-        else:
-            device.turn_off()
+    if device and isinstance(device, Actuator):
+        # Oppdater statusen på selve objektet i minnet
+        device.state = target_state.state 
         return Response(status_code=200)
-
     return Response(status_code=404)
 
 if __name__ == '__main__':
