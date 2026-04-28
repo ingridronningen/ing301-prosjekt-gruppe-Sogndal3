@@ -85,7 +85,13 @@ class ActuatorStateInfo(BaseModel):
     state: Union[float, bool]
 
     @staticmethod
-    def from_obj(actuator: Actuator) -> ActuatorStateInfo:
-        return ActuatorStateInfo(state=actuator.state)
+    class ActuatorStateInfo(BaseModel):
+        state: Union[bool, float]
 
+        @classmethod
+        def from_obj(cls, obj):
+        # Hvis denne linjen henter feil variabel, vil appen alltid tro den er OFF
+        # Siden du har en is_active() metode i domain.py, bør vi bruke den:
+            return cls(state=obj.is_active())
+ 
 ActuatorStateInfo.model_rebuild()

@@ -80,21 +80,25 @@ class SmartHouseApp:
             print("---- SmartHouse Control App ----\nSelect option:\n1. Toggle Lightbulb \n2. Show Temperature\n3. Quit\n")
             user_input = input(">>> ")
 
-            if not user_input.isdigit() and int(user_input) in {1, 2, 3}:
+
+            if not user_input.isdigit():
                 print(f"Unrecognized input: '{user_input}'")
             else:
                 selected_option = int(user_input)
-                if selected_option == 1:
+                if selected_option not in {1, 2, 3}:
+                    print(f"Unrecognized option: {selected_option}")
+                 
 
+                elif selected_option == 1:
                     current_state = self.get_bulb_state()
                     print(f'Current state lightbulb: {current_state}')
-
-                    if current_state == 'off':
-                        current_state = 'on'
+                    
+                    if current_state == False or current_state == 'off':
+                        target_state = True
                     else:
-                        current_state = 'off'
+                        target_state = False
 
-                    self.update_bulb_state(current_state)
+                    self.update_bulb_state(target_state)
                     new_state = self.get_bulb_state()
                     print(f'New state lightbulb: {new_state}')
 

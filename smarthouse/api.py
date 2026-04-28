@@ -1,5 +1,6 @@
 import uvicorn
 
+import logging
 from fastapi import FastAPI, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, JSONResponse
@@ -157,12 +158,18 @@ def update_sensor_state(uuid: str, target_state: ActuatorStateInfo) -> Response:
     # 1. Finn enheten
     device = smarthouse.get_device_by_id(uuid)
     
-    # 2. Bruk den innebygde metoden is_actuator() i stedet for isinstance
     if device and device.is_actuator():
-        # 3. Oppdater statusen
+        # Siden klassen din bruker 'self.state', må vi oppdatere den her:
         device.state = target_state.state 
+        
+        # Logg for å bekrefte i terminalen
+        print(f"DEBUG: Satte device.state til {device.state}")
+        
         return Response(status_code=200)
     
     return Response(status_code=404)
+
 if __name__ == '__main__':
-    uvicorn.run(app, host="127.0.0.1", port=8001)
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000) 
+
