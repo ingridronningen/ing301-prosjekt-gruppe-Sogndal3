@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Literal
+from typing import Literal, Union, Optional, List
 
 from pydantic import BaseModel
 from smarthouse.domain import Actuator, ActuatorWithSensor, Device, Floor, Room, Sensor, SmartHouse
@@ -87,3 +87,5 @@ class ActuatorStateInfo(BaseModel):
     @staticmethod
     def from_obj(actuator: Actuator) -> ActuatorStateInfo:
         return ActuatorStateInfo(state=actuator.state)
+
+ActuatorStateInfo.model_rebuild()

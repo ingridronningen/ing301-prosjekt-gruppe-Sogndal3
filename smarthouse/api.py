@@ -96,12 +96,23 @@ def get_device(uuid: str) -> Response:
 @app.get("/smarthouse/sensor/{uuid}/current")
 def read_measurement(uuid: str) -> Response:
     device = smarthouse.get_device_by_id(uuid)
-    if device and device.is_sensor():
-        measurement = device.get_current()
-        if measurement:
-            return JSONResponse(content=jsonable_encoder(measurement))
-        return Response(status_code=404) # Eller 204 No Content hvis man foretrekker det
-    return Response(status_code=404)
+
+    # Sjekk om enheten i det hele tatt finnes
+    if not device:
+        return Response(status_code=404, content="Device not found")
+
+    # Sjekk om det faktisk er en sensor
+    if not device.is_sensor():
+        return Response(status_code=400, content="Device is not a sensor")
+
+    measurement = device.get_current()
+    
+    if measurement:
+        return JSONResponse(content=jsonable_encoder(measurement))
+    
+    # Hvis sensoren finnes, men er tom, returnerer vi 204 No Content
+    # Dette er ofte det Bruno-tester forventer hvis de ikke har "puttet" data ennå
+    return Response(status_code=204)
 
 @app.put("/smarthouse/sensor/{uuid}/current")
 def update_sensor_measurement(uuid: str, measurement: Measurement) -> Response:
@@ -132,18 +143,26 @@ def delete_measurement(uuid: str) -> Response:
 @app.get("/smarthouse/actuator/{uuid}/state")
 def read_actuator_state(uuid: str) -> Response:
     device = smarthouse.get_device_by_id(uuid)
+    
+    # Sjekk om device finnes og om den faktisk har en 'is_actuator' metode som returnerer True
     if device and device.is_actuator():
-        return JSONResponse(content=jsonable_encoder(ActuatorStateInfo.from_obj(device)))
+        # Vi må kaste den til en Actuator-type (logisk sett) for at DTO skal fungere
+        state_dto = ActuatorStateInfo.from_obj(device)
+        return JSONResponse(content=jsonable_encoder(state_dto))
+    
     return Response(status_code=404)
 
 @app.put("/smarthouse/actuator/{uuid}/state")
 def update_sensor_state(uuid: str, target_state: ActuatorStateInfo) -> Response:
+    # 1. Finn enheten
     device = smarthouse.get_device_by_id(uuid)
-    if device and isinstance(device, Actuator):
-        # Oppdater statusen på selve objektet i minnet
+    
+    # 2. Bruk den innebygde metoden is_actuator() i stedet for isinstance
+    if device and device.is_actuator():
+        # 3. Oppdater statusen
         device.state = target_state.state 
         return Response(status_code=200)
+    
     return Response(status_code=404)
-
 if __name__ == '__main__':
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8001)
