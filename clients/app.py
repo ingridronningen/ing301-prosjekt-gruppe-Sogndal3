@@ -2,113 +2,80 @@ import common
 import requests
 
 class SmartHouseApp:
-    """
-    Class representing an end-user client application that can
-    interact with the device clients via the cloud service.
-
-    The application is highly simplistic being only capable of
-    controlling a temperature sensor and a light bulb actuator
-    """
-
     def __init__(self):
         self.sensor_did = common.TEMPERATURE_SENSOR_DID
         self.actuator_did = common.LIGHT_BULB_ACTUATOR_DID
 
     def get_bulb_state(self) -> str:
-        """
-        This method sends a GET request to the cloud state to obtain
-        the current state of the light bulb actuator
-        """
-
+        """ Henter status og returnerer 'on' eller 'off' for å matche main-logikken """
         url = common.BASE_URL + f"actuator/{self.actuator_did}/state"
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                actuator_state = common.ActuatorState.from_json_str(response.text)
+                # Oversetter True -> 'on' og False -> 'off'
+                return "on" if actuator_state.state else "off"
+        except Exception as e:
+            print(f"Error getting bulb state: {e}")
+        return "off"
 
-        payload = {}
-        headers = {}
-
-        response = requests.request("GET", url, headers=headers, data=payload)
-
-        actuator_state = common.ActuatorState.from_json_str(response.text)
-
-        return actuator_state.state
-
-    def update_bulb_state(self,new_state) -> requests.Response:
-        """
-        This method sends a PUT request to the cloud state to obtain
-        the current state of the light bulb actuator
-        """
-
+    def update_bulb_state(self, new_state_str) -> requests.Response:
+        """ Tar inn 'on' eller 'off', og sender True eller False til skyen """
         url = common.BASE_URL + f"actuator/{self.actuator_did}/state"
-
-        payload = {
-            "state": new_state == "on",
-            "value": None
-        }
-
+        
+        # Oversetter tekst tilbake til bool før sending
+        bool_state = True if new_state_str == "on" else False
+        
+        payload = {"state": bool_state}
         response = requests.put(url, json=payload)
-
         return response
 
-        pass
-
-    
     def get_temperature(self) -> float:
-        """
-        This method sends a GET request to the cloud state to obtain
-        the current temperature recorded for the temperature sensor
-        """
-
+        """ Henter temperaturmåling fra skyen """
         url = common.BASE_URL + f"sensor/{self.sensor_did}/current"
-
-        response = requests.get(url)
-
-        if response.status_code == 200:
-            data = response.json()
-            return float(data["value"])
-
-        return None
-
-        pass
-
-
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                measurement = common.SensorMeasurement.from_json_str(response.text)
+                return measurement.value
+        except Exception as e:
+            print(f"Error getting temperature: {e}")
+        return 0.0
 
     def main(self):
-
         is_active = True
 
         while is_active:
-
-            print("---- SmartHouse Control App ----\nSelect option:\n1. Toggle Lightbulb \n2. Show Temperature\n3. Quit\n")
+            print("\n---- SmartHouse Control App ----\nSelect option:\n1. Toggle Lightbulb \n2. Show Temperature\n3. Quit\n")
             user_input = input(">>> ")
 
-
-            if not user_input.isdigit():
-                print(f"Unrecognized input: '{user_input}'")
-            else:
+            # Sjekker om input faktisk er et av de gyldige tallene
+            if user_input.isdigit() and int(user_input) in {1, 2, 3}:
                 selected_option = int(user_input)
-                if selected_option not in {1, 2, 3}:
-                    print(f"Unrecognized option: {selected_option}")
-                 
-
-                elif selected_option == 1:
+                
+                if selected_option == 1:
+                    # 1. Hent nåværende (får f.eks. 'off')
                     current_state = self.get_bulb_state()
                     print(f'Current state lightbulb: {current_state}')
-                    
-                    if current_state == False or current_state == 'off':
-                        target_state = True
-                    else:
-                        target_state = False
 
+                    # 2. Bytt til motsatt tekst
+                    target_state = 'on' if current_state == 'off' else 'off'
+
+                    # 3. Send oppdatering
                     self.update_bulb_state(target_state)
+                    
+                    # 4. Bekreft endring
                     new_state = self.get_bulb_state()
                     print(f'New state lightbulb: {new_state}')
 
                 elif selected_option == 2:
-
                     value = self.get_temperature()
                     print(f'Current temperature: {value}')
 
-                else:
+                elif selected_option == 3:
                     is_active = False
+            else:
+                print(f"Unrecognized input: '{user_input}'")
 
         print("App shutting down")
 
