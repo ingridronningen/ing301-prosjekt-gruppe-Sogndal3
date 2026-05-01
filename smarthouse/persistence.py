@@ -1,6 +1,6 @@
 import sqlite3
 from typing import Optional
-from smarthouse.domain import Measurement, SmartHouse, Room, Floor, Sensor, Actuator
+from smarthouse.domain import Actuator, ActuatorWithSensor, Measurement, Room, Sensor, SmartHouse
 
 class SmartHouseRepository:
     """
@@ -25,6 +25,9 @@ class SmartHouseRepository:
         return self.conn.cursor()
 
     def reconnect(self):
+        """
+        Closes the current connection towards the database and opens a fresh one.
+        """
         self.conn.close()
         self.conn = sqlite3.connect(self.file)
 
@@ -36,101 +39,99 @@ class SmartHouseRepository:
         all referenced objects within the object structure (e.g. floors, rooms, devices) 
         are retrieved as well. 
         """
-        # TODO: START here! remove the following stub implementation and implement this function 
-        #       by retrieving the data from the database via SQL `SELECT` statements.
-        # (henter alle rom og devices, koble devices til rom og bygge et SmartHouse-objekt)
+        result = SmartHouse()
         cursor = self.cursor()
 
-        cursor.execute ("SELECT id, floor, area, name FROM rooms")  # henter rom
-        rooms_data = cursor.fetchall()
+        # Creating floors
+        cursor.execute('SELECT MAX(floor) from rooms;')
+        no_floors = cursor.fetchone()[0]
+        floors = []
+        for i in range(0, no_floors):
+            floors.append(result.register_floor(i + 1))
 
-        cursor.execute ("SELECT id, room, kind, category, supplier, product, state FROM devices")  # henter devices
-        devices_data = cursor.fetchall()
+        # Creating roooms
+        room_dict = {}
+        cursor.execute('SELECT id, floor, area, name from rooms;')
+        room_tuples = cursor.fetchall()
+        for room_tuple in room_tuples:
+            room = result.register_room(floors[int(room_tuple[1]) - 1], float(room_tuple[2]), room_tuple[3])
+            room.db_id = int(room_tuple[0])
+            room_dict[room_tuple[0]] = room
+
+        cursor.execute('SELECT id, room, kind, category, supplier, product from devices;')
+        device_tuples = cursor.fetchall()
+        for device_tuple in device_tuples:
+            room = room_dict[device_tuple[1]]
+            category = device_tuple[3]
+            if category == 'sensor':
+                result.register_device(room, Sensor(device_tuple[0], device_tuple[5], device_tuple[4], device_tuple[2]))
+            elif category == 'actuator':
+                if device_tuple[2] == 'Heat Pump':
+                    result.register_device(room, ActuatorWithSensor(device_tuple[0], device_tuple[5], device_tuple[4], device_tuple[2]))
+                else:
+                    result.register_device(room, Actuator(device_tuple[0], device_tuple[5], device_tuple[4], device_tuple[2]))
+
+        for dev in result.get_devices():
+            if isinstance(dev, Actuator):
+                cursor.execute(f"SELECT state FROM states where device = '{dev.id}';")
+                state = cursor.fetchone()[0]
+                if state is None:
+                    dev.turn_off()
+                elif float(state) == 1.0:
+                    dev.turn_on()
+                else:
+                    dev.turn_on(float(state))
+
 
         cursor.close()
+        return result
 
-        house = SmartHouse()
-
-        room_map = {}    # floor + room kobling 
-        floors_map = {}
-        for r_id, floor_level, area, room_name in rooms_data:
-            if floor_level not in floors_map:
-                floor = Floor(floor_level)
-                floors_map[floor_level] = floor
-                house.floors.append(floor)
-            else:
-                floor = floors_map[floor_level]
-
-            room = Room(area, room_name)
-            floor.rooms.append(room)
-            room_map[r_id] = room
-
-        # Opprett devices og koble til rom
-        for d_id, room_id, kind, category, supplier, product, state in devices_data:
-            room = room_map.get(room_id)
-
-            if kind.lower() == "sensor":
-                device = Sensor(d_id, supplier, product, unit="unknown", sensor_type=category)
-            else:
-                device = Actuator(d_id, supplier, product, actuator_type=category)
-                if state == 1:
-                    device.turn_on()
-                else:
-                    device.turn_off()
-
-            if room:    #legger device inn i rom 
-                room.devices.append(device)
-
-            house.devices[d_id] = device
-        
-        return house
 
     def get_latest_reading(self, sensor) -> Optional[Measurement]:
         """
-        Retrieves the most recent sensor reading for the given sensor if available.
+        Retrieves the most recent sensor reading for the given sensor object if available.
         Returns None if the given object has no sensor readings.
         """
-        # TODO: After loading the smarthouse, continue here
-        #(henter siste måling fra measurments for en sensor)
+        query = f"""
+SELECT ts, value, unit from measurements m 
+WHERE device = '{sensor.id}'
+order by ts desc 
+limit 1;
+        """
+        c = self.cursor()
+        c.execute(query)
+        result = c.fetchall()
+        if len(result) == 0:
+            return None
+        m = Measurement(result[0][0], float(result[0][1]), result[0][2])
+        c.close()
+        return m
 
-        cursor = self.cursor()
-        cursor.execute(
-            """SELECT ts, value, unit 
-            FROM measurements 
-            WHERE device = ? 
-            ORDER BY ts DESC 
-            LIMIT 1""",
-            (sensor.id,)
-        )
-        row = cursor.fetchone()
-        cursor.close()
-
-        if row:
-            return Measurement(timestamp=row[0], value=row[1], unit=row[2])
-        return None
 
     def update_actuator_state(self, actuator):
         """
         Saves the state of the given actuator in the database. 
         """
-        # TODO: Implement this method. You will probably need to extend the existing database structure: e.g.
-        #       by creating a new table (`CREATE`), adding some data to it (`INSERT`) first, and then issue
-        #       and SQL `UPDATE` statement. Remember also that you will have to call `commit()` on the `Connection`
-        #       stored in the `self.conn` instance variable.
-   
-        cursor = self.cursor()
-        cursor.execute(
-            """UPDATE devices
-               SET state = ?
-               WHERE id = ?""",
-            (1 if actuator.is_active() else 0, actuator.id)
-        )
-        self.conn.commit()
-        cursor.close()
+        if isinstance(actuator, Actuator):
+            s = 'NULL'
+            if isinstance(actuator.state, float):
+                s = str(actuator.state)
+            elif actuator.state is True:
+                s = '1.0'
+            query = f"""
+UPDATE states 
+SET state = {s}
+WHERE device = '{actuator.id}';
+        """
+            c = self.cursor()
+            c.execute(query)
+            self.conn.commit()
+            c.close()
+
+
 
     # statistics
 
-    
     def calc_avg_temperatures_in_room(self, room, from_date: Optional[str] = None, until_date: Optional[str] = None) -> dict:
         """Calculates the average temperatures in the given room for the given time range by
         fetching all available temperature sensor data (either from a dedicated temperature sensor 
@@ -141,45 +142,27 @@ class SmartHouseRepository:
         The result should be a dictionary where the keys are strings representing dates (iso format) and 
         the values are floating point numbers containing the average temperature that day.
         """
-        # TODO: This and the following statistic method are a bit more challenging. Try to design the respective 
-        #       SQL statements first in a SQL editor like Dbeaver and then copy it over here.  
-        #(SQL-spørring som henter temp målinger for et rom og regner gjennomsnitt per dag)
-        
-        cursor = self.cursor()
-
-        # Hent alle sensorer i rommet som har temperatur-data:
-        device_ids = [d.id for d in room.devices]
-        if not device_ids:
-            return {}
-
-        # Lag SQL IN-list
-        placeholders = ",".join("?" for _ in device_ids)
-
-        sql = f"""
-            SELECT DATE(ts) as day, AVG(value)
-            FROM measurements
-            WHERE device IN ({placeholders})
-            AND unit = '°C'
-        """
-        params = list(device_ids)
-
-        # Legg til tidsbegrensning hvis gitt
-        if from_date:
-            sql += " AND DATE(ts) >= ?"
-            params.append(from_date)
-
-        if until_date:
-            sql += " AND DATE(ts) <= ?"
-            params.append(until_date)
-
-        sql += " GROUP BY DATE(ts) ORDER BY DATE(ts)"
-
-        cursor.execute(sql, params)
-        rows = cursor.fetchall()
-        cursor.close()
-
-        # Lag dict med {dato: gjennomsnitt}
-        return {row[0]: row[1] for row in rows}
+        result = {}
+        if isinstance(room, Room) and room.db_id is not None:
+            lower_bound_pred = ""
+            upper_bound_pred = ""
+            if from_date is not None:
+                lower_bound_pred = f"AND ts >= '{from_date} 00:00:00'"
+            if until_date is not None:
+                upper_bound_pred = f"AND ts <= '{until_date} 23:59:59'"
+            query = f"""
+    SELECT STRFTIME('%Y-%m-%d', DATETIME(ts)), avg(value) 
+    FROM devices d 
+    INNER join measurements m ON m.device = d.id 
+    WHERE d.room = {room.db_id} AND m.unit = '°C' {lower_bound_pred} {upper_bound_pred}
+    GROUP BY STRFTIME('%Y-%m-%d', DATETIME(ts)) ;
+            """
+            cursor = self.cursor()
+            cursor.execute(query)
+            query_result = cursor.fetchall()
+            for row in query_result:
+                result[row[0]] = float(row[1])
+        return result
 
     
     def calc_hours_with_humidity_above(self, room, date: str) -> list:
@@ -189,45 +172,27 @@ class SmartHouseRepository:
         the average recorded humidity in that room at that particular time.
         The result is a (possibly empty) list of number representing hours [0-23].
         """
-        # TODO: implement
-        #(SQL-spørring som teller timer med >3 målinger over gjennomsnitt)
-
-        cursor = self.cursor()
-
-        # Hent alle humidity-sensorer i rommet
-        device_ids = [d.id for d in room.devices]
-        if not device_ids:
-            return []
-
-        placeholders = ",".join("?" for _ in device_ids)
-
-        # 1. Finn gjennomsnittet for hele dagen i det rommet for enheter med '%'
-        cursor.execute(
-            f"SELECT AVG(value) FROM measurements WHERE device IN ({placeholders}) AND DATE(ts) = ? AND unit = '%'",
-            device_ids + [date]
-        )
-        avg_row = cursor.fetchone()
-        if not avg_row or avg_row[0] is None:
-            return []
-        
-        day_avg = avg_row[0]
-
-        # 2. Finn timer som har MER enn 3 målinger som er høyere enn dette dagsgjennomsnittet
-        # "more than three" betyr > 3 (altså 4 eller flere)
-        sql = f"""
-            SELECT STRFTIME('%H', ts) as hour
-            FROM measurements
-            WHERE device IN ({placeholders}) 
-              AND DATE(ts) = ? 
-              AND unit = '%'
-              AND value > ?
-            GROUP BY hour
-            HAVING COUNT(*) > 3
-            ORDER BY hour
-        """
-        
-        cursor.execute(sql, device_ids + [date, day_avg])
-        rows = cursor.fetchall()
-        cursor.close()
-
-        return [int(row[0]) for row in rows]
+        result = []
+        if isinstance(room, Room) and room.db_id is not None:
+            query = f"""
+SELECT  STRFTIME('%H', DATETIME(m.ts)) AS hours 
+FROM measurements m 
+INNER JOIN devices d ON m.device = d.id 
+INNER JOIN rooms r ON r.id = d.room 
+WHERE 
+r.id = {room.db_id}
+AND m.unit = '%' 
+AND DATE(m.ts) = DATE('{date}')
+AND m.value > (
+	SELECT AVG(value) 
+	FROM measurements m 
+	INNER JOIN devices d on d.id = m.device
+	WHERE d.room = 4 AND DATE(ts) = DATE('{date}'))
+GROUP BY hours
+HAVING COUNT(m.value) > 3;
+            """
+            cursor = self.cursor()
+            cursor.execute(query)
+            for h in cursor.fetchall():
+                result.append(int(h[0]))
+        return result
