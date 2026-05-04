@@ -103,7 +103,7 @@ limit 1;
         result = c.fetchall()
         if len(result) == 0:
             return None
-        m = Measurement(result[0][0], float(result[0][1]), result[0][2])
+        m = Measurement(timestamp=result[0][0], value=float(result[0][1]), unit=result[0][2])
         c.close()
         return m
 
