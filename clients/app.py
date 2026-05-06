@@ -1,4 +1,4 @@
-from clients import common
+import common
 import requests
 
 class SmartHouseApp:

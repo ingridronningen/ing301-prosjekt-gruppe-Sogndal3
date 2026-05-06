@@ -84,10 +84,6 @@ class DeviceInfo(BaseModel):
 class ActuatorStateInfo(BaseModel):
     state: Union[float, bool]
 
-    @staticmethod
-    class ActuatorStateInfo(BaseModel):
-        state: Union[bool, float]
-
     @classmethod
     def from_obj(cls, obj):
     # Hvis denne linjen henter feil variabel, vil appen alltid tro den er OFF

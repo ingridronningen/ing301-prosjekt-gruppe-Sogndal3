@@ -8,7 +8,7 @@ import logging
 log_format = "%(asctime)s: %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO, datefmt="%H:%M:%S")
 
-from clients import common
+import common
 
 TEMPERATURE_SENSOR_CLIENT_SLEEP_TIME = 4
 TEMP_RANGE = 40
