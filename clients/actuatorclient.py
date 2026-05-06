@@ -5,7 +5,7 @@ import logging
 log_format = "%(asctime)s: %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO, datefmt="%H:%M:%S")
 
-import common
+from clients import common
 
 LIGHTBULB_CLIENT_SLEEP_TIME = 4
 
@@ -29,7 +29,7 @@ class ActuatorClient:
         logging.info(f"Actuator Client {self.did} retrieving state")
         actuator_state = None
 
-        url = f"http://127.0.0.1:8002/smarthouse/actuator/{self.did}/state"
+        url = f"http://127.0.0.1:8000/smarthouse/actuator/{self.did}/state"
         
         try:
             response = requests.get(url)

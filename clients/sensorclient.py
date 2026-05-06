@@ -8,7 +8,7 @@ import logging
 log_format = "%(asctime)s: %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO, datefmt="%H:%M:%S")
 
-import common
+from clients import common
 
 TEMPERATURE_SENSOR_CLIENT_SLEEP_TIME = 4
 TEMP_RANGE = 40
@@ -46,7 +46,7 @@ class SensorClient:
         logging.info(f"Sensor client {self.did} update starting")
         response = None
 
-        url = f"http://127.0.0.1:8002/smarthouse/sensor/{self.did}/current"
+        url = f"http://127.0.0.1:8000/smarthouse/sensor/{self.did}/current"
         
         payload = {
             "value": float(m.value),
