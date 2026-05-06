@@ -46,7 +46,7 @@ class SensorClient:
         logging.info(f"Sensor client {self.did} update starting")
         response = None
 
-        url = f"http://127.0.0.1:8001/smarthouse/sensor/{self.did}/current"
+        url = f"http://127.0.0.1:8002/smarthouse/sensor/{self.did}/current"
         
         payload = {
             "value": float(m.value),

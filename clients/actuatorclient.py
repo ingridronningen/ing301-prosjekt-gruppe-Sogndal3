@@ -29,7 +29,7 @@ class ActuatorClient:
         logging.info(f"Actuator Client {self.did} retrieving state")
         actuator_state = None
 
-        url = f"http://127.0.0.1:8001/smarthouse/actuator/{self.did}/state"
+        url = f"http://127.0.0.1:8002/smarthouse/actuator/{self.did}/state"
         
         try:
             response = requests.get(url)

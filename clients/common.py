@@ -1,7 +1,7 @@
 import json
 
 # base URL for the cloud service - can be used to avoid dependency on deployment
-BASE_URL = "http://localhost:8001/smarthouse/"
+BASE_URL = "http://localhost:8002/smarthouse/"
 
 TEMPERATURE_SENSOR_DID = "4d8b1d62-7921-4917-9b70-bbd31f6e2e8e"
 LIGHT_BULB_ACTUATOR_DID = '6b1c5f6b-37f6-4e3d-9145-1cfbe2f1fc28'

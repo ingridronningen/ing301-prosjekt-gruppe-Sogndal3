@@ -5,7 +5,7 @@ info:
 
 http:
   method: GET
-  url: http://127.0.0.1:8001/smarthouse/floor/1/room/1
+  url: http://127.0.0.1:8002/smarthouse/floor/1/room/1
   auth: inherit
 
 settings:
