@@ -155,7 +155,7 @@ def read_actuator_state(uuid: str) -> Response:
 
 @app.put("/smarthouse/actuator/{uuid}/state")
 def update_sensor_state(uuid: str, target_state: ActuatorStateInfo) -> Response:
-    device = smart_house.get_device_by_id(uuid)
+    device = smarthouse.get_device_by_id(uuid)
     if device and device.is_actuator():
         # 3. Oppdater statusen i selve objektet
         device.state = target_state.state
@@ -166,7 +166,7 @@ def update_sensor_state(uuid: str, target_state: ActuatorStateInfo) -> Response:
         # Returner en liten JSON-bekreftelse (bedre enn tom Response)
         return {"status": "ok", "state": device.state}
     
-    raise HTTPException(status_code=404, detail="Device not found or not an actuator")
+    return Response(status_code=404)
 
 if __name__ == '__main__':
     import uvicorn
